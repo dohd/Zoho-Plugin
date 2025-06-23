@@ -32,6 +32,7 @@ Route::group(['middleware' => 'auth'], function() {
     Route::get('dashboard', [HomeController::class, 'index'])->name('home');
 
     // Invoices
+    Route::get('invoices/contacts', [InvoicesController::class, 'searchContacts'])->name('invoices.search_contacts');
     Route::resource('invoices', InvoicesController::class);
 
     // Employees

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\invoices;
 
 use App\Http\Controllers\Controller;
+use App\Http\Services\InvoiceService;
 use App\Models\invoice\Invoice;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -11,6 +12,13 @@ use Illuminate\Support\Facades\Storage;
 
 class InvoicesController extends Controller
 {
+    protected $service;
+
+    public function __construct()
+    {
+        $this->service = new InvoiceService;
+    }
+
     /**
      * Display a listing of the resource.
      *
@@ -222,5 +230,16 @@ class InvoicesController extends Controller
         $fileName = time() . '_' . $file->getClientOriginalName();
         Storage::disk('public')->put("employee_docs/{$fileName}", file_get_contents($file->getRealPath()));
         return $fileName;
+    }
+
+    /** 
+     * Search Contacts
+     * */
+    public function searchContacts(Request $request)
+    {
+        $params = $request->all();
+        $contacts = $this->service->getContacts($params);
+        
+        return response()->json($contacts);
     }
 }
