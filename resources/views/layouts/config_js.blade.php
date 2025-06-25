@@ -18,8 +18,13 @@ function flashMessage(data) {
         alert = @json(errorFlashMessage());
         message = data.responseJSON.message;
     } else if(data.message) {
-        alert = @json(successFlashMessage());
-        message = data.message;
+        if (data.status == 'success') {
+            alert = @json(successFlashMessage());
+            message = data.message;
+        } else if (data.status == 'error') {
+            alert = @json(errorFlashMessage());
+            message = data.message;
+        }
     } else {
         alert = @json(errorFlashMessage());
         message = 'Oops! Something went wrong. Please try again later';
@@ -28,9 +33,9 @@ function flashMessage(data) {
     $('div.alert strong').html(message);
     scroll(0,0);  
     setTimeout(() => {
-        if (data.redirectTo) location.href = data.redirectTo;
         $('div.alert').remove();
-    }, 4000);
+        if (data.redirectTo) location.href = data.redirectTo;
+    }, 5000);
 }
 
 /**

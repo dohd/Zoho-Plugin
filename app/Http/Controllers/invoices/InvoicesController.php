@@ -61,8 +61,15 @@ class InvoicesController extends Controller
      */
     public function store(Request $request)
     {
-        // dd($request->all());
         $input = $request->except('_token');
+        dd($input, config('zohotemplate.invoice'));
+        
+
+
+
+
+
+
         try {   
             foreach ($input as $key => $value) {
                 if ($key == 'gross_salary') $input[$key] = numberClean($value);
@@ -241,5 +248,39 @@ class InvoicesController extends Controller
         $contacts = $this->service->getContacts($params);
         
         return response()->json($contacts);
+    }
+
+    /** 
+     * Search Sales Person
+     * */
+    public function searchSalesPersons(Request $request)
+    {
+        $params = $request->all();
+        $salesPerson = $this->service->getSalesPerson($params);
+        
+        return response()->json($salesPerson);
+    }
+
+    /** 
+     * Search Items
+     * */
+    public function searchItems(Request $request)
+    {
+        $params = $request->all();
+        $itemsObj = $this->service->getItems($params);
+        $items = @$itemsObj->items ?: [];
+        // dd($items);
+        return view('invoices.partial.dropdown_item', compact('items'));
+    }
+
+    /** 
+     * Payment Terms
+     * */
+    public function paymentTerms(Request $request)
+    {
+        $params = $request->all();
+        $terms = $this->service->paymentTerms($params);
+        
+        return response()->json($terms);
     }
 }

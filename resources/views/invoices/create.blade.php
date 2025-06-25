@@ -8,7 +8,7 @@
         <div class="card-body">
             <h5 class="card-title">Create Invoice</h5>
             <div class="card-content p-2">
-                {{ Form::open(['route' => 'invoices.store', 'method' => 'POST']) }}
+                {{ Form::open(['route' => 'invoices.store', 'method' => 'POST', 'id' => 'invoiceForm']) }}
                     @include('invoices.form')
                     <div class="text-center mt-2">
                         <a href="{{ route('invoices.index') }}" class="btn btn-secondary">Cancel</a>
