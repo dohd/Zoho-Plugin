@@ -62,11 +62,64 @@ class InvoicesController extends Controller
     public function store(Request $request)
     {
         $input = $request->except('_token');
-        dd($input, config('zohotemplate.invoice'));
+        // dd($input);
         
+        // $response = $this->service->postInvoice();
+        // $response = $this->service->markSentInvoice(6519309000000130001);
+        // $response = $this->service->postInventoryAdjustment();
+        // $response = $this->service->getItem(6519309000000099166);
+        // $response = $this->service->getCompositeItem(6519309000000099199);
+        // $response = $this->service->getCompositeItems(['name_contains' => 'Business Suite Setup']);
+        // return $response;
 
+        // post invoice
+        $invResponse = $this->service->postInvoice();
+        $zohoInvoice = @$invResponse->invoice; 
+        $invItems = @$invResponse->invoice->line_items;
+        if ($invItems && count($invItems)) {
+            foreach ($invItems as $invItem) {
+                $itemResp = $this->service->getItem($invItem->item_id);
+                $stockItem = @$itemResp->item;
+                printLog('**stock item**', json_encode($invItems));
+                if ($stockItem && $stockItem->product_type == 'service') {
+                    $itemName = $stockItem->name;
+                    // fetch composite items with replica name
+                    $comItemResponse = $this->service->getCompositeItems(['name_contains' => $itemName]);
+                    $comItems = @$comItemResponse->composite_items;
+                    printLog('**composite items**', json_encode($comItems));
+                    if ($comItems && count($comItems)) {
+                        $comItem = $comItems[0];
+                        // fetch specific composite item 
+                        $comItemResponse1 = $this->service->getCompositeItem($comItem->composite_item_id);
+                        $mappedItems = @$comItemResponse1->composite_item->mapped_items;
+                        printLog('**mapped items**', json_encode($mappedItems));
+                        // adjust inventory for mapped items
+                        if ($mappedItems && count($mappedItems)) {
+                            $adjustmentLines = [];
+                            foreach ($mappedItems as $mappedItem) {
+                                if ($mappedItem->product_type == 'goods') {
+                                    $adjustmentLines[] = [
+                                        "item_id" => $mappedItem->item_id,
+                                        "quantity_adjusted" => -$mappedItem->quantity*$invItem->quantity
+                                    ];
+                                }
+                            }
+                            printLog('**adjustment Lines**', json_encode($adjustmentLines));
+                            $adjResponse = $this->service->postInventoryAdjustment([
+                              "reason" => "Inventory Revaluation",
+                              "description" => "Sales Invoice {$zohoInvoice->invoice_number}",
+                              "date" => date('Y-m-d'),
+                              "warehouse_id" => "6519309000000093087", // dynamic
+                              "line_items" => $adjustmentLines
+                            ]);                            
+                        }
+                    }
+                }
+            }
+            $this->service->markSentInvoice($zohoInvoice->invoice_id);
+        }
 
-
+        return ['invoice' => $invResponse, 'adjustment' => @$adjResponse];
 
 
 
@@ -77,7 +130,6 @@ class InvoicesController extends Controller
                     $input[$key] = Carbon::parse($value)->format('Ymd');
                 }
             }
-
             $invoice = Invoice::create($input);
             return redirect(route('invoices.index'))->with(['success' => 'Invoice created successfully']);
         } catch (\Throwable $th) {
