@@ -13,12 +13,11 @@
                         <thead>
                             <tr>
                                 <th>#</th>
-                                <th>PF No.</th>
-                                <th>ID No.</th>                                
-                                <th>Full Name</th>
-                                <th>Designation</th>
-                                <th>Work County</th>
-                                <th>Engagement Type</th>
+                                <th>Date</th>
+                                <th>Invoice#</th>
+                                <th>Order Number#</th>                                
+                                <th>Customer Name</th>
+                                <th>Amount</th>
                                 <th>Action</th>
                             </tr>
                         </thead>
@@ -26,12 +25,11 @@
                             @foreach ($invoices as $i => $row)
                                 <tr>
                                     <th scope="row">{{ $i+1 }}</th>
-                                    <td>{{ $row->payroll_no }}</td>
-                                    <td>{{ $row->id_no }}</td>
-                                    <td>{{ implode(" ", [$row->surname, $row->first_name, $row->other_name])  }}</td>
-                                    <td>{{ $row->job_desig }}</td>
-                                    <td>{{ $row->work_county }}</td>
-                                    <td>{{ $row->engagement_type }}</td>
+                                    <td>{{ dateFormat($row->date) }}</td>
+                                    <td>{{ $row->zoho_invoice_number }}</td>
+                                    <td>{{ $row->order_number  }}</td>
+                                    <td>{{ $row->customer_name  }}</td>
+                                    <td>{{ numberFormat($row->total)  }}</td>
                                     <td>{!! $row->action_buttons !!}</td>
                                 </tr>
                             @endforeach

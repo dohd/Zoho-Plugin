@@ -11,8 +11,8 @@ trait InvoiceAttribute
     public function getActionButtonsAttribute()
     {
         return $this->getButtonWrapperAttribute(
-            null, // $this->getViewButtonAttribute('invoices.show', 'view-invoice'),
-            null, // $this->getEditButtonAttribute('invoices.edit', 'edit-invoice'),
+            $this->getViewButtonAttribute('invoices.show', 'view-invoice'),
+            $this->getEditButtonAttribute('invoices.edit', 'edit-invoice'),
             $this->getDeleteButtonAttribute('invoices.destroy', 'delete-invoice'),
         );
     }

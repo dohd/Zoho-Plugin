@@ -61,8 +61,8 @@ class Invoice extends Model
 
         static::creating(function ($instance) {
             $instance->fill([
+                'record_num' => Invoice::max('record_num')+1,
                 'user_id' => auth()->user()->id,
-                // 'ins' => auth()->user()->ins,
             ]);
             return $instance;
         });

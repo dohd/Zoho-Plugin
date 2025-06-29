@@ -6,6 +6,10 @@
 			item_id="{{ $row->item_id }}" 
 			rate="{{ $row->rate }}"
 			name="{{ $row->item_name }}"
+			descr="{{ $row->description }}"
+			item_type="{{ $row->product_type }}"
+			sku="{{ $row->sku }}"
+			unit="{{ $row->unit }}"
 		>
 			<div class="d-flex justify-content-between">
 				<div class="h5">{{ $row->item_name }}</div>

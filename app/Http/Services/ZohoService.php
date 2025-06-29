@@ -5,7 +5,7 @@ namespace App\Http\Services;
 use Exception;
 use Illuminate\Support\Facades\Log;
 
-class InvoiceService
+class ZohoService
 {
     public function postRequest($url='',$query=[],$content=[])
     {
@@ -51,7 +51,7 @@ class InvoiceService
                 $responseData = json_decode($response->getBody()->getContents());
             },
             function (Exception $e) {
-                Log::error('Zoho Post error, ' . $e->getMessage());
+                Log::error('Zoho Error, ' . $e->getMessage());
             }
         );
         $promise->wait();
@@ -108,6 +108,15 @@ class InvoiceService
         return $response;
     }
 
+    public function getLocations($params=[])
+    {
+        $response = $this->getRequest(config('ZOHO_BASE_URL').'/locations', [
+            'organization_id' => config('ZOHO_ORGANIZATION_ID'),
+        ] + $params);
+
+        return $response;
+    }
+
     public function getItems($params=[])
     {
         $response = $this->getRequest(config('ZOHO_BASE_URL').'/items', [
@@ -153,49 +162,38 @@ class InvoiceService
         return $response;
     }
 
-    public function postInvoice($model=[])
-    {
+    public function postInvoice($model)
+    {   
+        $lineItems = $model->items->map(function($item) {
+            return [
+                "item_id" => $item->item_id,
+                "name" => $item->name,
+                "description" => $item->description,
+                "item_order" => 1,
+                "bcy_rate" => (float) @$item->invoice->currency_rate,
+                "rate" => $item->rate,
+                "quantity" => 1,
+                "unit" => $item->unit,
+                "discount" => 0,
+                "item_total" => $item->amount,
+            ];
+        });
         $invoiceData = array_replace(config('zohotemplate.invoice'), [
-            'customer_id' => '6519309000000099242',
-            'date' => date('Y-m-d'),
-            'due_date' => date('Y-m-d'),
-            "payment_terms" => 0, 
-            "payment_terms_label" => "Due on Receipt",
-            'salesperson_name' => 'Caroline Wakio',
+            'customer_id' => $model->customer_id,
+            'date' => $model->date,
+            'due_date' => $model->due_date,
+            "payment_terms" => $model->payment_terms, 
+            "payment_terms_label" => $model->payment_terms_label,
+            'salesperson_name' => $model->salesperson_name,
             "is_discount_before_tax" => true,
             "discount_type" => "item_level",
             "is_inclusive_tax" => false,
-            "exchange_rate" => 1,
-            "line_items" => [
-                // [
-                //     "item_id" => 6519309000000099166,
-                //     "name" => "Ethernet Cable 5M",
-                //     "description" => "Ethernet Cable 5M",
-                //     "item_order" => 1,
-                //     "bcy_rate" => 1,
-                //     "rate" => 2500,
-                //     "quantity" => 10,
-                //     "unit" => "mtr",
-                //     "discount" => 0,
-                //     "item_total" => 25000,
-                // ]
-                [
-                    "item_id" => 6519309000000107186,
-                    "name" => "Business Suite Setup",
-                    "description" => "Business Suite Setup",
-                    "item_order" => 1,
-                    "bcy_rate" => 1,
-                    "rate" => 301000,
-                    "quantity" => 1,
-                    "unit" => "mtr",
-                    "discount" => 0,
-                    "item_total" => 301000,
-                ]
-            ],
-            'sub_total' => 301000,
+            "exchange_rate" => $model->currency_rate,
+            "line_items" => $lineItems,
+            'sub_total' => $model->subtotal,
             'tax_total' => 0,
-            'total' => 301000,
-            "notes" => "Looking forward for your business.",
+            'total' => $model->total,
+            "notes" => $model->notes,
             "terms" => "Terms & Conditions apply",
             "shipping_charge" => 0,
             "adjustment" => 0,
@@ -244,6 +242,15 @@ class InvoiceService
             ['organization_id' => config('ZOHO_ORGANIZATION_ID')],
             $adjustment
         );
+
+        return $response;
+    }
+
+    public function getCurrencies()
+    {
+        $response = $this->getRequest(config('ZOHO_BASE_URL').'/settings/currencies', [
+            'organization_id' => config('ZOHO_ORGANIZATION_ID'),
+        ]);
 
         return $response;
     }

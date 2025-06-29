@@ -1,19 +1,19 @@
 <?php
 
-namespace App\Models\medical_insurers;
+namespace App\Models\invoice;
 
-use App\Models\medical_insurers\Traits\PlanOptionRelationship;
+use App\Models\invoice\Traits\InvoiceItemRelationship;
 use Illuminate\Database\Eloquent\Model;
 
-class PlanOption extends Model
+class InvoiceItem extends Model
 {
-    use PlanOptionRelationship;   
+    use InvoiceItemRelationship;
 
     /**
      * The database table used by the model.
      * @var string
      */
-    protected $table = 'medical_plan_options';
+    protected $table = 'invoice_items';
 
     /**
      * Mass Assignable fields of model
@@ -60,12 +60,13 @@ class PlanOption extends Model
         static::creating(function ($instance) {
             $instance->fill([
                 'user_id' => auth()->user()->id,
+                // 'ins' => auth()->user()->ins,
             ]);
             return $instance;
         });
 
-        // static::addGlobalScope('ins', function ($builder) {
-        //     $builder->where('ins', '=', auth()->user()->ins);
-        // });
+        static::addGlobalScope('ins', function ($builder) {
+            // $builder->where('ins', auth()->user()->ins);
+        });
     }
 }

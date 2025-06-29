@@ -1,19 +1,19 @@
 <?php
 
-namespace App\Models\medical_insurers;
+namespace App\Models\stockadj;
 
-use App\Models\medical_insurers\Traits\PlanBenefitRelationship;
+use App\Models\ModelTrait;
 use Illuminate\Database\Eloquent\Model;
 
-class PlanBenefit extends Model
+class Stockadj extends Model
 {
-    use PlanBenefitRelationship;   
+    // use ModelTrait, InvoiceAttribute, InvoiceRelationship;   
 
     /**
      * The database table used by the model.
      * @var string
      */
-    protected $table = 'medical_plan_benefits';
+    protected $table = 'stock_adjs';
 
     /**
      * Mass Assignable fields of model
@@ -60,12 +60,13 @@ class PlanBenefit extends Model
         static::creating(function ($instance) {
             $instance->fill([
                 'user_id' => auth()->user()->id,
+                // 'ins' => auth()->user()->ins,
             ]);
             return $instance;
         });
 
-        // static::addGlobalScope('ins', function ($builder) {
-        //     $builder->where('ins', '=', auth()->user()->ins);
-        // });
+        static::addGlobalScope('ins', function ($builder) {
+            // $builder->where('ins', auth()->user()->ins);
+        });
     }
 }

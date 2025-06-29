@@ -1,19 +1,21 @@
 <?php
 
-namespace App\Models\medical_insurers;
+namespace App\Models\stockadj;
 
-use App\Models\medical_insurers\Traits\RateVariableRelationship;
+// use App\Models\invoice\Traits\InvoiceAttribute;
+// use App\Models\invoice\Traits\InvoiceRelationship;
+use App\Models\ModelTrait;
 use Illuminate\Database\Eloquent\Model;
 
-class RateVariable extends Model
+class StockadjItem extends Model
 {
-    use RateVariableRelationship;
+    // use ModelTrait, InvoiceAttribute, InvoiceRelationship;   
 
     /**
      * The database table used by the model.
      * @var string
      */
-    protected $table = 'rate_variables';
+    protected $table = 'stock_adj_items';
 
     /**
      * Mass Assignable fields of model
@@ -60,12 +62,13 @@ class RateVariable extends Model
         static::creating(function ($instance) {
             $instance->fill([
                 'user_id' => auth()->user()->id,
+                // 'ins' => auth()->user()->ins,
             ]);
             return $instance;
         });
 
-        // static::addGlobalScope('ins', function ($builder) {
-        //     $builder->where('ins', '=', auth()->user()->ins);
-        // });
+        static::addGlobalScope('ins', function ($builder) {
+            // $builder->where('ins', auth()->user()->ins);
+        });
     }
 }

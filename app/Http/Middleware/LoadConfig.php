@@ -28,7 +28,7 @@ class LoadConfig
         $now = time();
         $future = strtotime(config('ZOHO_ACCESS_TOKEN_EXPIRY'));
         if ($now >= $future) {
-            $service = new \App\Http\Services\InvoiceService;
+            $service = new \App\Http\Services\ZohoService;
             $resp = $service->refreshToken();
             if ($resp && $resp->access_token) {
                 GlobalConfig::where('key', 'ZOHO_ACCESS_TOKEN_EXPIRES_IN')->update([

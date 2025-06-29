@@ -3,11 +3,16 @@
 namespace App\Http\Controllers\invoices;
 
 use App\Http\Controllers\Controller;
-use App\Http\Services\InvoiceService;
+use App\Http\Services\ZohoService;
 use App\Models\invoice\Invoice;
+use App\Models\invoice\InvoiceItem;
+use App\Models\stockadj\Stockadj;
+use App\Models\stockadj\StockadjItem;
 use Carbon\Carbon;
+use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
 class InvoicesController extends Controller
@@ -16,7 +21,7 @@ class InvoicesController extends Controller
 
     public function __construct()
     {
-        $this->service = new InvoiceService;
+        $this->service = new ZohoService;
     }
 
     /**
@@ -62,78 +67,147 @@ class InvoicesController extends Controller
     public function store(Request $request)
     {
         $input = $request->except('_token');
-        // dd($input);
-        
-        // $response = $this->service->postInvoice();
-        // $response = $this->service->markSentInvoice(6519309000000130001);
-        // $response = $this->service->postInventoryAdjustment();
-        // $response = $this->service->getItem(6519309000000099166);
-        // $response = $this->service->getCompositeItem(6519309000000099199);
-        // $response = $this->service->getCompositeItems(['name_contains' => 'Business Suite Setup']);
-        // return $response;
+        $dataItems = $request->only([
+            'item_id', 'row_index', 'name', 'description', 
+            'unit', 'quantity', 'rate', 'amount', 'tax_id', 'tax_percentage',
+            'item_tax', 'product_type', 'sku'
+        ]);
+        $data = $request->except(['_token', ...array_keys($dataItems)]);
+        $zohoInvoice = null;
+        $zohoAdjs = [];
 
-        // post invoice
-        $invResponse = $this->service->postInvoice();
-        $zohoInvoice = @$invResponse->invoice; 
-        $invItems = @$invResponse->invoice->line_items;
-        if ($invItems && count($invItems)) {
-            foreach ($invItems as $invItem) {
-                $itemResp = $this->service->getItem($invItem->item_id);
-                $stockItem = @$itemResp->item;
-                printLog('**stock item**', json_encode($invItems));
-                if ($stockItem && $stockItem->product_type == 'service') {
-                    $itemName = $stockItem->name;
-                    // fetch composite items with replica name
-                    $comItemResponse = $this->service->getCompositeItems(['name_contains' => $itemName]);
-                    $comItems = @$comItemResponse->composite_items;
-                    printLog('**composite items**', json_encode($comItems));
-                    if ($comItems && count($comItems)) {
-                        $comItem = $comItems[0];
-                        // fetch specific composite item 
-                        $comItemResponse1 = $this->service->getCompositeItem($comItem->composite_item_id);
-                        $mappedItems = @$comItemResponse1->composite_item->mapped_items;
-                        printLog('**mapped items**', json_encode($mappedItems));
-                        // adjust inventory for mapped items
-                        if ($mappedItems && count($mappedItems)) {
-                            $adjustmentLines = [];
-                            foreach ($mappedItems as $mappedItem) {
-                                if ($mappedItem->product_type == 'goods') {
-                                    $adjustmentLines[] = [
-                                        "item_id" => $mappedItem->item_id,
-                                        "quantity_adjusted" => -$mappedItem->quantity*$invItem->quantity
-                                    ];
+        try {
+            // sanitize
+            foreach ($data as $key => $value) {
+                if (in_array($key, ['date', 'due_date'])) {
+                    $data[$key] = databaseDate($value);
+                }
+                if (in_array($key, ['taxable', 'tax', 'subtotal', 'total'])) {
+                    $data[$key] = numberClean($value);
+                }
+            }
+            foreach ($dataItems as $key => $value) {
+                if (in_array($key, ['row_index', 'amount', 'item_tax', 'quantity', 'rate', 'tax_percentage'])) {
+                    $dataItems[$key] = array_map(fn($v) => numberClean($v), $value);
+                }
+            }
+
+            DB::beginTransaction();
+
+            // create local invoice
+            $invoice = Invoice::create($data);
+            // create local invoice items
+            $dataItems['invoice_id'] = array_fill(0, count($dataItems['name']), @$invoice->id);
+            $dataItems['user_id'] = array_fill(0, count($dataItems['name']), @$invoice->user_id);
+            $dataItems = databaseArray($dataItems);
+            $dataItems = array_filter($dataItems, fn($v) => $v['name']);
+            InvoiceItem::insert($dataItems);
+
+            // Post zoho invoice
+            $adjResponses = [];
+            $invResponse = $this->service->postInvoice($invoice);
+            $zohoInvoice = @$invResponse->invoice; 
+            $invItems = @$invResponse->invoice->line_items;
+            if ($invItems && count($invItems)) {
+                foreach ($invItems as $invItem) {
+                    $itemResp = $this->service->getItem($invItem->item_id);
+                    $stockItem = @$itemResp->item;
+                    Log::info('**stock item**' . json_encode($invItems));
+
+                    if ($stockItem && $stockItem->product_type == 'service') {
+                        $itemName = $stockItem->name;
+                        // fetch composite items with replica name
+                        $comItemResponse = $this->service->getCompositeItems(['name_contains' => $itemName]);
+                        $comItems = @$comItemResponse->composite_items;
+                        Log::info('**composite items**' . json_encode($comItems));
+
+                        if ($comItems && count($comItems)) {
+                            $comItem = $comItems[0];
+                            // fetch specific composite item 
+                            $comItemResponse1 = $this->service->getCompositeItem($comItem->composite_item_id);
+                            $mappedItems = @$comItemResponse1->composite_item->mapped_items;
+                            Log::info('**mapped items**' . json_encode($mappedItems));
+
+                            // adjust inventory for mapped items
+                            if ($mappedItems && count($mappedItems)) {
+                                $adjustmentLines = [];
+                                foreach ($mappedItems as $mappedItem) {
+                                    if ($mappedItem->product_type == 'goods') {
+                                        $adjustmentLines[] = [
+                                            "item_id" => $mappedItem->item_id,
+                                            "quantity_adjusted" => -$mappedItem->quantity*$invItem->quantity
+                                        ];
+                                    }
                                 }
+                                Log::info('**adjustment Lines**' . json_encode($adjustmentLines));
+                                $adjResponses[] = $this->service->postInventoryAdjustment([
+                                  "reason" => "Inventory Revaluation",
+                                  "description" => "Sales Invoice {$zohoInvoice->invoice_number}",
+                                  "adjustment_type" => "quantity",
+                                  "date" => $zohoInvoice->date,
+                                  "location_id" => $zohoInvoice->location_id, // dynamic
+                                  "line_items" => $adjustmentLines
+                                ]);                            
                             }
-                            printLog('**adjustment Lines**', json_encode($adjustmentLines));
-                            $adjResponse = $this->service->postInventoryAdjustment([
-                              "reason" => "Inventory Revaluation",
-                              "description" => "Sales Invoice {$zohoInvoice->invoice_number}",
-                              "date" => date('Y-m-d'),
-                              "warehouse_id" => "6519309000000093087", // dynamic
-                              "line_items" => $adjustmentLines
-                            ]);                            
                         }
                     }
                 }
+                $this->service->markSentInvoice($zohoInvoice->invoice_id);
             }
-            $this->service->markSentInvoice($zohoInvoice->invoice_id);
-        }
+            $invoice->update([
+                'zoho_invoice_id' => $zohoInvoice->invoice_id,
+                'zoho_invoice_number' => $zohoInvoice->invoice_number,
+                'zoho_status' => $zohoInvoice->status,
+                'zoho_exchange_rate' => $zohoInvoice->exchange_rate,
+                'zoho_invoice_url' => $zohoInvoice->invoice_url,
+            ]);
 
-        return ['invoice' => $invResponse, 'adjustment' => @$adjResponse];
+            // 
 
-
-
-        try {   
-            foreach ($input as $key => $value) {
-                if ($key == 'gross_salary') $input[$key] = numberClean($value);
-                if (strpos($key, 'date') !== false) {
-                    $input[$key] = Carbon::parse($value)->format('Ymd');
+            $zohoAdjs = [];
+            foreach ($adjResponses as $adjResponse) {
+                $zohoAdj = @$adjResponse->inventory_adjustment;
+                if ($zohoAdj) {
+                    $zohoAdjs[] = $zohoAdj;
+                    // create local stock adjustment
+                    $stockAdj = Stockadj::create([
+                        'reason' => $zohoAdj->reason,
+                        'description' => $zohoAdj->description,
+                        'adjustment_type' => $zohoAdj->adjustment_type,
+                        'date' => $zohoAdj->date,
+                        'location_id' => $zohoAdj->location_id,
+                        'invoice_id' => $invoice->id,
+                        'inventory_adjustment_id' => $zohoAdj->inventory_adjustment_id,
+                    ]);
+                    foreach ($zohoAdj->line_items as $item) {
+                        StockadjItem::create([
+                            'stock_adj_id' => $stockAdj->id,
+                            'item_id' => $item->item_id,
+                            'quantity_adjusted' => $item->quantity_adjusted,
+                            'zoho_line_item_id' => $item->line_item_id,
+                            'zoho_item_name' => $item->name,
+                            'zoho_adjustment_account_id' => $item->adjustment_account_id,
+                            'zoho_adjustment_account_name' => $item->adjustment_account_name,
+                        ]);
+                    }
                 }
             }
-            $invoice = Invoice::create($input);
-            return redirect(route('invoices.index'))->with(['success' => 'Invoice created successfully']);
-        } catch (\Throwable $th) {
-            return errorHandler('Error creating Invoice!', $th);
+
+            DB::commit();
+
+            return [
+                'status' => 'success', 
+                'message' => 'Invoice created successfully',
+                'data' => compact('zohoInvoice', 'zohoAdjs'),
+            ];
+        } catch (Exception $e) {
+            $msg = $e->getMessage() . ' ' . $e->getFile() . ' ' . $e->getLine();
+            Log::error($msg);
+            return [
+                'status' => 'error', 
+                'message' => 'Invoice creation failed: ' . $msg,
+                'data' => compact('zohoInvoice', 'zohoAdjs'),
+            ];
         }
     }
 
@@ -233,6 +307,7 @@ class InvoicesController extends Controller
     {
         try {            
             $invoice->delete();
+            $invoice->items()->delete();
             return redirect(route('invoices.index'))->with(['success' => 'Invoice deleted successfully']);
         } catch (\Throwable $th) {
             return errorHandler('Error deleting Invoice!', $th);
@@ -334,5 +409,27 @@ class InvoicesController extends Controller
         $terms = $this->service->paymentTerms($params);
         
         return response()->json($terms);
+    }
+
+    /** 
+     * Item Locations
+     * */
+    public function itemLocations(Request $request)
+    {
+        $params = $request->all();
+        $locations = $this->service->getLocations($params);
+        
+        return response()->json($locations);
+    }
+
+    /** 
+     * Currencies
+     * */
+    public function currencies(Request $request)
+    {
+        $params = $request->all();
+        $currencies = $this->service->getCurrencies($params);
+        
+        return response()->json($currencies);
     }
 }
