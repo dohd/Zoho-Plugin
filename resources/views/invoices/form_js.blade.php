@@ -72,6 +72,7 @@
 		headerRowHtml: $('#itemTbl .header-row:first').clone(),
 		itemRowHtml: $('#itemTbl .item-row:first').clone(),
 		itemSpinner: '<li>{!! spinner() !!}</li>',
+		btnSpinner: '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>',
 
 		init() {
 			$('#customer').select2(config.customerSelect2);
@@ -90,15 +91,15 @@
 			$('#itemTbl').on('click', '.name', function() { $(this).keyup() });
 			$('form').submit(Form.onSubmit);
 
-			setTimeout(() => {
-				Form.loadPaymentTerms();
-				Form.loadCurrencies();
-			}, 500);		
+			Form.loadPaymentTerms();
+			Form.loadCurrencies();
 		},
 
 		onSubmit(e) {
 			e.preventDefault();
+			$('#submitBtn').attr('disabled', true).html(`Submit ${Form.btnSpinner}`);
 			const formData = new FormData(this);
+
 			$.ajax({
 			    url: "{{ route('invoices.store') }}",
 			    type: 'POST',
@@ -106,12 +107,13 @@
 			    contentType: false,
 			    processData: false,
 			    success: function(response) {
-			      // console.log('Uploaded successfully', response);
-			      flashMessage(response)
+			      $('#submitBtn').attr('disabled', false).html('Submit');
+			      flashMessage(response);			      
 			    },
 			    error: function(xhr,status,err) {
 			      // console.error('Upload failed:', xhr.responseText, err);
-			      flashMessage(xhr)
+			      $('#submitBtn').attr('disabled', false).html('Submit');
+			      flashMessage(xhr);
 			    }
 			});
 		},

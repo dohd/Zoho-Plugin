@@ -34,15 +34,6 @@
 	</div>
 </div>
 
-<!-- <div class="row g-3 align-items-center mb-2">
-	<div class="col-md-2">
-		<label for="invoiceNo" class="col-form-label text-danger">Invoice#*</label>
-	</div>
-	<div class="col-md-4">
-		{{ Form::text('invoice_no', null, ['class' => 'form-control', 'id' => 'invoiceNo']) }}
-	</div>
-</div> -->
-
 <div class="row g-3 align-items-center mb-4">
 	<div class="col-md-2">
 		<label for="invoiceDate" class="col-form-label text-danger">Invoice Date</label>

@@ -12,7 +12,7 @@
                     @include('invoices.form')
                     <div class="text-center mt-2">
                         <a href="{{ route('invoices.index') }}" class="btn btn-secondary">Cancel</a>
-                        {{ Form::submit('Submit', ['class' => 'btn btn-primary']) }}
+                        <button type="submit" class="btn btn-primary" id="submitBtn">Submit</button>
                     </div>
                 {{ Form::close() }}
             </div>

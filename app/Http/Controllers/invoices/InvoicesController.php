@@ -68,20 +68,19 @@ class InvoicesController extends Controller
     {
         $input = $request->except('_token');
         $dataItems = $request->only([
-            'item_id', 'row_index', 'name', 'description', 
-            'unit', 'quantity', 'rate', 'amount', 'tax_id', 'tax_percentage',
+            'item_id', 'row_index', 'name', 'description', 'unit', 
+            'quantity', 'rate', 'amount', 'tax_id', 'tax_percentage',
             'item_tax', 'product_type', 'sku'
         ]);
         $data = $request->except(['_token', ...array_keys($dataItems)]);
         $zohoInvoice = null;
         $zohoAdjs = [];
+        $adjResponses = [];
 
         try {
             // sanitize
             foreach ($data as $key => $value) {
-                if (in_array($key, ['date', 'due_date'])) {
-                    $data[$key] = databaseDate($value);
-                }
+                if (in_array($key, ['date', 'due_date'])) $data[$key] = databaseDate($value);
                 if (in_array($key, ['taxable', 'tax', 'subtotal', 'total'])) {
                     $data[$key] = numberClean($value);
                 }
@@ -109,24 +108,24 @@ class InvoicesController extends Controller
             $zohoInvoice = @$invResponse->invoice; 
             $invItems = @$invResponse->invoice->line_items;
             if ($invItems && count($invItems)) {
+                Log::info('Invoice Items: ' . strval(count($invItems)));
                 foreach ($invItems as $invItem) {
                     $itemResp = $this->service->getItem($invItem->item_id);
                     $stockItem = @$itemResp->item;
-                    Log::info('**stock item**' . json_encode($invItems));
 
                     if ($stockItem && $stockItem->product_type == 'service') {
                         $itemName = $stockItem->name;
                         // fetch composite items with replica name
                         $comItemResponse = $this->service->getCompositeItems(['name_contains' => $itemName]);
                         $comItems = @$comItemResponse->composite_items;
-                        Log::info('**composite items**' . json_encode($comItems));
+                        Log::info('Composite Items: ' . strval(count($comItems)));
 
                         if ($comItems && count($comItems)) {
                             $comItem = $comItems[0];
                             // fetch specific composite item 
                             $comItemResponse1 = $this->service->getCompositeItem($comItem->composite_item_id);
                             $mappedItems = @$comItemResponse1->composite_item->mapped_items;
-                            Log::info('**mapped items**' . json_encode($mappedItems));
+                            Log::info('Mapped Composite Items: ' . strval(count($mappedItems)));
 
                             // adjust inventory for mapped items
                             if ($mappedItems && count($mappedItems)) {
@@ -139,7 +138,7 @@ class InvoicesController extends Controller
                                         ];
                                     }
                                 }
-                                Log::info('**adjustment Lines**' . json_encode($adjustmentLines));
+                                Log::info('Adjustment Lines: ' . strval(count($adjustmentLines)));
                                 $adjResponses[] = $this->service->postInventoryAdjustment([
                                   "reason" => "Inventory Revaluation",
                                   "description" => "Sales Invoice {$zohoInvoice->invoice_number}",
@@ -195,19 +194,31 @@ class InvoicesController extends Controller
 
             DB::commit();
 
-            return [
+            return response()->json([
                 'status' => 'success', 
                 'message' => 'Invoice created successfully',
-                'data' => compact('zohoInvoice', 'zohoAdjs'),
-            ];
+                'redirectTo' => route('invoices.create'),
+                // 'data' => compact('zohoInvoice', 'zohoAdjs'),
+            ]);
+
         } catch (Exception $e) {
+            // Clear Zoho entries
+            foreach ($zohoAdjs as $zohoAdj) {
+                $this->service->deleteInventoryAdjustment($zohoAdj->inventory_adjustment_id);
+                Log::info('Zoho Adjustment Cleared: ' . $zohoAdj->inventory_adjustment_id);
+            }
+            if ($zohoInvoice) {
+                $this->service->deleteInvoice($zohoInvoice->invoice_id);
+                Log::info('Zoho Invoice Cleared: ' . $zohoAdj->inventory_adjustment_id);
+            }
+            
             $msg = $e->getMessage() . ' ' . $e->getFile() . ' ' . $e->getLine();
             Log::error($msg);
-            return [
+            return response()->json([
                 'status' => 'error', 
                 'message' => 'Invoice creation failed: ' . $msg,
-                'data' => compact('zohoInvoice', 'zohoAdjs'),
-            ];
+                // 'data' => compact('zohoInvoice', 'zohoAdjs'),
+            ]);
         }
     }
 
@@ -219,26 +230,7 @@ class InvoicesController extends Controller
      */
     public function show(Invoice $invoice)
     {
-        $excluded = [
-            'id', 'ins', 'user_id', 'created_at', 'updated_at',
-        ];
-        $employeeCols = DB::table('information_schema.columns')
-        ->select('COLUMN_NAME')
-        ->where('table_schema', DB::getDatabaseName()) // current DB
-        ->where('table_name', 'invoices')
-        ->whereNotIn('COLUMN_NAME', $excluded)
-        ->orderBy('ORDINAL_POSITION')
-        ->pluck('COLUMN_NAME')
-        ->toArray();
-        $employeeCols = array_chunk($employeeCols, 4);
-
-        foreach ($invoice->getAttributes() as $key => $value) {
-            if (strpos($key, 'date') !== false && $value) {
-                $invoice[$key] = dateFormat($value, 'Y-m-d');
-            }
-        }
-
-        return view('invoices.view', compact('invoice', 'employeeCols'));
+        return view('invoices.view', compact('invoice'));
     }
 
     /**
@@ -249,26 +241,7 @@ class InvoicesController extends Controller
      */
     public function edit(Invoice $invoice)
     {
-        $excluded = [
-            'id', 'ins', 'user_id', 'created_at', 'updated_at',
-        ];
-        $employeeCols = DB::table('information_schema.columns')
-        ->select('COLUMN_NAME')
-        ->where('table_schema', DB::getDatabaseName()) // current DB
-        ->where('table_name', 'invoices')
-        ->whereNotIn('COLUMN_NAME', $excluded)
-        ->orderBy('ORDINAL_POSITION')
-        ->pluck('COLUMN_NAME')
-        ->toArray();
-        $employeeCols = array_chunk($employeeCols, 4);
-
-        foreach ($invoice->getAttributes() as $key => $value) {
-            if (strpos($key, 'date') !== false && $value) {
-                $invoice[$key] = dateFormat($value, 'Y-m-d');
-            }
-        }
-
-        return view('invoices.edit', compact('invoice', 'employeeCols'));
+        return view('invoices.edit', compact('invoice'));
     }
 
     /**
@@ -280,21 +253,7 @@ class InvoicesController extends Controller
      */
     public function update(Invoice $invoice, Request $request)
     { 
-        // dd($request->all());
-        $input = $request->except('_token');
-        try {      
-            foreach ($input as $key => $value) {
-                if ($key == 'gross_salary') $input[$key] = numberClean($value);
-                if (strpos($key, 'date') !== false) {
-                    $input[$key] = Carbon::parse($value)->format('Ymd');
-                }
-            }
-
-            $invoice->update($input);
-            return redirect(route('invoices.index'))->with(['success' => 'Invoice updated successfully']);
-        } catch (\Throwable $th) {
-            return errorHandler('Error updating Invoice!', $th);
-        }
+        // 
     }
 
     /**
@@ -306,8 +265,9 @@ class InvoicesController extends Controller
     public function destroy(Invoice $invoice)
     {
         try {            
+            $invoice->stockAdj()->delete();
             $invoice->delete();
-            $invoice->items()->delete();
+
             return redirect(route('invoices.index'))->with(['success' => 'Invoice deleted successfully']);
         } catch (\Throwable $th) {
             return errorHandler('Error deleting Invoice!', $th);
@@ -396,7 +356,11 @@ class InvoicesController extends Controller
         $params = $request->all();
         $itemsObj = $this->service->getItems($params);
         $items = @$itemsObj->items ?: [];
-        // dd($items);
+
+        // filter out composite items
+        $sku = config('ZOHO_COMPOSITE_SKU');
+        if ($sku) $items = array_filter($items, fn($v) => !(stripos($v->sku, $sku) !== false));
+        
         return view('invoices.partial.dropdown_item', compact('items'));
     }
 

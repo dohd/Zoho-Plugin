@@ -58,6 +58,31 @@ class ZohoService
         return $responseData;
     }
 
+    public function deleteRequest($url='',$query=[])
+    {
+        $client = new \GuzzleHttp\Client();
+        $promise = $client->deleteAsync($url, [
+            'headers' => [
+                'Content-Type' => "application/json",
+                'Accept' => "application/json",
+                'Authorization' => 'Zoho-oauthtoken ' . config('ZOHO_ACCESS_TOKEN'),
+            ],
+            'query' => $query,
+        ]);
+        
+        $responseData = (object) [];
+        $promise->then(
+            function ($response) use(&$responseData){
+                $responseData = json_decode($response->getBody()->getContents());
+            },
+            function (Exception $e) {
+                Log::error('Zoho Error, ' . $e->getMessage());
+            }
+        );
+        $promise->wait();
+        return $responseData;
+    }
+
     public function refreshToken()
     {
         $url = config('ZOHO_REFRESH_TOKEN_URL');
@@ -172,7 +197,7 @@ class ZohoService
                 "item_order" => 1,
                 "bcy_rate" => (float) @$item->invoice->currency_rate,
                 "rate" => $item->rate,
-                "quantity" => 1,
+                "quantity" => $item->quantity,
                 "unit" => $item->unit,
                 "discount" => 0,
                 "item_total" => $item->amount,
@@ -214,33 +239,42 @@ class ZohoService
         return $response;
     }
 
+    public function deleteInvoice($invoiceId)
+    {
+        $response = $this->deleteRequest(
+            config('ZOHO_BASE_URL')."/invoices/{$invoiceId}", 
+            ['organization_id' => config('ZOHO_ORGANIZATION_ID')]
+        );
+
+        return $response;
+    }
+
     public function markSentInvoice($invoiceId)
     {
         $response = $this->postRequest(
             config('ZOHO_BASE_URL')."/invoices/{$invoiceId}/status/sent", 
             ['organization_id' => config('ZOHO_ORGANIZATION_ID')]
         );
+
         return $response;
     }
 
     public function postInventoryAdjustment($adjustment=[])
     {
-        // $adjustment = [
-        //   "reason" => "Inventory Revaluation",
-        //   "date" => date('Y-m-d'),
-        //   "warehouse_id" => "6519309000000093087", // dynamic
-        //   "line_items" => [
-        //     [
-        //       "item_id" => "6519309000000099166",
-        //       "quantity_adjusted" => -5,
-        //     ],
-        //   ]
-        // ];
-
         $response = $this->postRequest(
             config('ZOHO_BASE_URL')."/inventoryadjustments", 
             ['organization_id' => config('ZOHO_ORGANIZATION_ID')],
             $adjustment
+        );
+
+        return $response;
+    }
+
+    public function deleteInventoryAdjustment($inventoryAdjustmentId)
+    {
+        $response = $this->deleteRequest(
+            config('ZOHO_BASE_URL')."/inventoryadjustments/{$inventoryAdjustmentId}", 
+            ['organization_id' => config('ZOHO_ORGANIZATION_ID')]
         );
 
         return $response;
