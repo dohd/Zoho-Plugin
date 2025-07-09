@@ -31,7 +31,8 @@ class InvoicesController extends Controller
      */
     public function index()
     {
-        $invoices = Invoice::latest()->get();
+        $invoices = Invoice::whereNull('deleted_at')->latest()->get();
+
         return view('invoices.index', compact('invoices'));
     }
 
@@ -264,9 +265,9 @@ class InvoicesController extends Controller
      */
     public function destroy(Invoice $invoice)
     {
-        try {            
-            $invoice->stockAdj()->delete();
-            $invoice->delete();
+        try {   
+            $invoice->update(['deleted_at' => now()]);
+            if ($invoice->stockAdj) $invoice->stockAdj()->update(['deleted_at' => now()]); 
 
             return redirect(route('invoices.index'))->with(['success' => 'Invoice deleted successfully']);
         } catch (\Throwable $th) {
