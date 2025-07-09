@@ -153,7 +153,8 @@
 							</option>`;
 						$('#terms').append(optionEl);
 					});
-					$('#terms').change();
+					// Due on Receipt Term
+					$(`#terms option[terms="0"]`).attr('selected', true);
 				}
 			})
 			.fail((xhr,status,err) => {
