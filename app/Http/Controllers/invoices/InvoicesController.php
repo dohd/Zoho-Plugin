@@ -8,8 +8,8 @@ use App\Models\invoice\Invoice;
 use App\Models\invoice\InvoiceItem;
 use App\Models\stockadj\Stockadj;
 use App\Models\stockadj\StockadjItem;
-use Carbon\Carbon;
 use Exception;
+use GuzzleHttp\Exception\RequestException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -162,14 +162,11 @@ class InvoicesController extends Controller
                 'zoho_invoice_url' => $zohoInvoice->invoice_url,
             ]);
 
-            // 
-
-            $zohoAdjs = [];
+            // create local stock adjustment
             foreach ($adjResponses as $adjResponse) {
                 $zohoAdj = @$adjResponse->inventory_adjustment;
                 if ($zohoAdj) {
                     $zohoAdjs[] = $zohoAdj;
-                    // create local stock adjustment
                     $stockAdj = Stockadj::create([
                         'reason' => $zohoAdj->reason,
                         'description' => $zohoAdj->description,
@@ -203,6 +200,9 @@ class InvoicesController extends Controller
             ]);
 
         } catch (Exception $e) {
+            $msg = $e->getMessage() . ' ' . $e->getFile() . ' ' . $e->getLine();
+            Log::error($msg);
+
             // Clear Zoho entries
             foreach ($zohoAdjs as $zohoAdj) {
                 $this->service->deleteInventoryAdjustment($zohoAdj->inventory_adjustment_id);
@@ -210,14 +210,22 @@ class InvoicesController extends Controller
             }
             if ($zohoInvoice) {
                 $this->service->deleteInvoice($zohoInvoice->invoice_id);
-                Log::info('Zoho Invoice Cleared: ' . $zohoAdj->inventory_adjustment_id);
+                Log::info('Zoho Invoice Cleared: ' . $zohoInvoice->invoice_id);
             }
             
-            $msg = $e->getMessage() . ' ' . $e->getFile() . ' ' . $e->getLine();
-            Log::error($msg);
+            if ($e instanceof RequestException && $e->hasResponse()) {
+                $response = $e->getResponse();
+                $statusCode = $response->getStatusCode();
+                $errorBody = (string) $response->getBody();
+                // Try to decode JSON error message
+                $error = json_decode($errorBody, true);
+                $msg = "Zoho HTTP $statusCode Error: " . ($error['message'] ?? $errorBody);
+                Log::error($msg);
+            } 
+            
             return response()->json([
                 'status' => 'error', 
-                'message' => 'Invoice creation failed: ' . $msg,
+                'message' => 'Invoice creation failed! ' . $msg,
                 // 'data' => compact('zohoInvoice', 'zohoAdjs'),
             ]);
         }

@@ -26,10 +26,11 @@ class ZohoService
                 $responseData = json_decode($response->getBody()->getContents());
             },
             function (Exception $e) {
-                Log::error('Zoho Post error, ' . $e->getMessage());
+                Log::error("Zoho Post Request Error: " . $e->getMessage());
             }
         );
         $promise->wait();
+
         return $responseData;
     }
 

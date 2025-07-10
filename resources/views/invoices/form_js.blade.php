@@ -155,6 +155,7 @@
 					});
 					// Due on Receipt Term
 					$(`#terms option[terms="0"]`).attr('selected', true);
+					$('#terms').change();
 				}
 			})
 			.fail((xhr,status,err) => {
