@@ -14,6 +14,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Validator;
 
 class InvoicesController extends Controller
 {
@@ -67,17 +68,45 @@ class InvoicesController extends Controller
      */
     public function store(Request $request)
     {
-        $input = $request->except('_token');
+        // validate request
+        $validator = Validator::make($request->all(), [
+            'customer_id' => 'required',
+            'date' => 'required',
+            'due_date' => 'required',
+            'location_id' => 'required',
+        ], [
+            'customer_id.required' => 'Customer is required',
+            'date.required' => 'Invoice date is required',
+            'date.date' => 'Invoice date must be a valid date',
+            'due_date.required' => 'Due date is required',
+            'due_date.date' => 'Due date must be a valid date',
+            'due_date.after_or_equal' => 'Due date must be after or equal to the invoice date',
+            'location_id.required' => 'Location is required',
+        ]);
+        if ($validator->fails()) {
+            $errors = $validator->errors(); // This is a MessageBag
+            // Get all errors as array
+            $errorMessages = $errors->all();
+            // Get specific field errors
+            // $customerErrors = $errors->get('customer_id');
+            return response()->json([
+                'status' => 'error', 
+                'message' => 'Validation failed! ' . implode(', ', $errorMessages),
+                'errors' => $errors
+            ], 422);
+        }
+
+        // extract input
         $dataItems = $request->only([
             'item_id', 'row_index', 'name', 'description', 'unit', 
             'quantity', 'rate', 'amount', 'tax_id', 'tax_percentage',
             'item_tax', 'product_type', 'sku'
         ]);
         $data = $request->except(['_token', ...array_keys($dataItems)]);
+
         $zohoInvoice = null;
         $zohoAdjs = [];
         $adjResponses = [];
-
         try {
             // sanitize
             foreach ($data as $key => $value) {
@@ -128,7 +157,7 @@ class InvoicesController extends Controller
                             $mappedItems = @$comItemResponse1->composite_item->mapped_items;
                             Log::info('Mapped Composite Items: ' . strval(count($mappedItems)));
 
-                            // adjust inventory for mapped items
+                            // Adjust mapped items stock levels
                             if ($mappedItems && count($mappedItems)) {
                                 $adjustmentLines = [];
                                 foreach ($mappedItems as $mappedItem) {
@@ -145,7 +174,7 @@ class InvoicesController extends Controller
                                   "description" => "Sales Invoice {$zohoInvoice->invoice_number}",
                                   "adjustment_type" => "quantity",
                                   "date" => $zohoInvoice->date,
-                                  "location_id" => $zohoInvoice->location_id, // dynamic
+                                  "location_id" => (string) (@$zohoInvoice->location_id ?: @$zohoInvoice->warehouse_id), // dynamic
                                   "line_items" => $adjustmentLines
                                 ]);                            
                             }
@@ -172,7 +201,7 @@ class InvoicesController extends Controller
                         'description' => $zohoAdj->description,
                         'adjustment_type' => $zohoAdj->adjustment_type,
                         'date' => $zohoAdj->date,
-                        'location_id' => $zohoAdj->location_id,
+                        'location_id' => (string) (@$zohoAdj->location_id ?: @$zohoAdj->warehouse_id),
                         'invoice_id' => $invoice->id,
                         'inventory_adjustment_id' => $zohoAdj->inventory_adjustment_id,
                     ]);
@@ -203,7 +232,7 @@ class InvoicesController extends Controller
             $msg = $e->getMessage() . ' ' . $e->getFile() . ' ' . $e->getLine();
             Log::error($msg);
 
-            // Clear Zoho entries
+            // Clear Zoho Entries
             foreach ($zohoAdjs as $zohoAdj) {
                 $this->service->deleteInventoryAdjustment($zohoAdj->inventory_adjustment_id);
                 Log::info('Zoho Adjustment Cleared: ' . $zohoAdj->inventory_adjustment_id);
@@ -213,6 +242,7 @@ class InvoicesController extends Controller
                 Log::info('Zoho Invoice Cleared: ' . $zohoInvoice->invoice_id);
             }
             
+            // Capture Zoho Error
             if ($e instanceof RequestException && $e->hasResponse()) {
                 $response = $e->getResponse();
                 $statusCode = $response->getStatusCode();
@@ -390,7 +420,14 @@ class InvoicesController extends Controller
     public function itemLocations(Request $request)
     {
         $params = $request->all();
-        $locations = $this->service->getLocations($params);
+        $locations = [];
+
+        try {
+            $locations = $this->service->getLocations($params);
+        } catch (Exception $e) {
+            Log::error($e->getMessage());
+            $locations = $this->service->getWarehouses($params);
+        }
         
         return response()->json($locations);
     }
