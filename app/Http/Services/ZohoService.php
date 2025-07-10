@@ -143,6 +143,15 @@ class ZohoService
         return $response;
     }
 
+    public function getWarehouses($params=[])
+    {
+        $response = $this->getRequest(config('ZOHO_BASE_URL').'/warehouses', [
+            'organization_id' => config('ZOHO_ORGANIZATION_ID'),
+        ] + $params);
+
+        return $response;
+    }
+
     public function getItems($params=[])
     {
         $response = $this->getRequest(config('ZOHO_BASE_URL').'/items', [

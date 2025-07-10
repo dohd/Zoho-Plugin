@@ -49,7 +49,7 @@
 			<div class="col-md-4">
 				<input type="hidden" name="payment_terms_label" id="paymentTermsLabel">
 				<input type="hidden" name="payment_terms" id="paymentTerms">
-				<select name="payment_terms_id" id="terms" class="form-select">					
+				<select name="payment_terms_id" id="terms" class="form-select" required>					
 				</select>
 			</div>
 		</div>
@@ -107,10 +107,10 @@
 
 		<div class="row g-3 align-items-center mt-2 mb-4">
 			<div class="col-md-2">
-				<label for="location" class="col-form-label">Location</label>
+				<label for="location" class="col-form-label text-danger">Location</label>
 			</div>
 			<div class="col-md-4">
-				<select name="location_id" id="location" class="form-control select-w" data-placeholder="Search Location">
+				<select name="location_id" id="location" class="form-control select-w" data-placeholder="Search Location or Warehouse">
 				</select>
 			</div>
 		</div>	

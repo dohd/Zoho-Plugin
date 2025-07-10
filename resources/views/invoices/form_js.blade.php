@@ -55,14 +55,25 @@
                 	location_name_contains: term,
                 }),            
                 processResults: response => {
-                    return { 
-                    	results: (response.locations || []).map(v => ({
-                    		id: v.location_id,
-                    		text: v.location_identification_number? 
-                    			`${v.location_identification_number} - ${v.location_name}`:
-                    			v.location_name,
-                    	})) 
-                    }
+                	if (response.locations) {
+	                    return { 
+	                    	results: (response.locations || []).map(v => ({
+	                    		id: v.location_id,
+	                    		text: v.location_identification_number? 
+	                    			`${v.location_identification_number} - ${v.location_name}`:
+	                    			v.location_name,
+	                    	})) 
+	                    }
+                	}
+                	if (response.warehouses) {
+	                    return { 
+	                    	results: (response.warehouses || []).map(v => ({
+	                    		id: v.warehouse_id,
+	                    		text: v.warehouse_name,	                    			
+	                    	})) 
+	                    }
+                	}
+                	return {results: []};
                 },
             }
 		},
