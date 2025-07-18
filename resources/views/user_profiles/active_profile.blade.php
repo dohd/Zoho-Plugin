@@ -20,7 +20,7 @@
           <div class="card-body profile-card pt-4 d-flex flex-column align-items-center">
             <div>
               <img 
-                src="{{ route('storage.file_render', 'images,user_profiles,' . $user_profile->profile_pic) }}" 
+                src="{{-- route('storage.file_render', 'images,user_profiles,' . $user_profile->profile_pic) --}}" 
                 onerror="this.onerror=null; this.src='{{ asset('img/profile-img.jpeg') }}'"
                 alt="profile-picture" 
                 class="rounded-circle"
