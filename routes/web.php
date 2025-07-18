@@ -32,6 +32,7 @@ Route::group(['middleware' => 'auth'], function() {
     Route::get('dashboard', [HomeController::class, 'index'])->name('home');
 
     // Invoices
+    Route::get('invoices/duedate', [InvoicesController::class, 'getDuedate'])->name('invoices.get_duedate');
     Route::get('invoices/currencies', [InvoicesController::class, 'currencies'])->name('invoices.currencies');
     Route::get('invoices/itemlocations', [InvoicesController::class, 'itemLocations'])->name('invoices.itemlocations');
     Route::get('invoices/paymentterms', [InvoicesController::class, 'paymentTerms'])->name('invoices.paymentterms');

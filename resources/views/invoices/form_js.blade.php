@@ -91,6 +91,7 @@
 			$('#location').select2(config.locationSelect2);
 
 			$('#customer').change(Form.onChangeCustomer);
+			$('#date, #paymentTerms').change(Form.updateDuedate);
 			$('#terms').change(Form.onChangeTerms);
 			$('#salesPerson').change(Form.onChangeSalesPerson);
 			$('#addRow').click(Form.onClickAddRow);
@@ -126,6 +127,22 @@
 			      $('#submitBtn').attr('disabled', false).html('Submit');
 			      flashMessage(xhr);
 			    }
+			});
+		},
+
+		updateDuedate() {
+			// update due-date
+			$.get("{{ route('invoices.get_duedate') }}", {
+				date: $('#date').val(),
+				terms: $('#paymentTerms').val(),
+			})
+			.then(resp => {
+				if (resp.duedate) {
+					$('#duedate').val(resp.duedate);
+				}
+			})
+			.fail((xhr,status,err) => {
+				flashMessage({status: 'error', message: 'Error updating Due Date'});
 			});
 		},
 
@@ -192,7 +209,7 @@
 		onChangeTerms() {
 			const opt = $(this).find(':selected');
 			$('#paymentTermsLabel').val(opt.attr('label'));
-			$('#paymentTerms').val(opt.attr('terms'));
+			$('#paymentTerms').val(opt.attr('terms')).change();
 		},
 
 		onKeyName() {

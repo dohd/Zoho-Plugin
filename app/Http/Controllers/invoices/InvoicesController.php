@@ -224,7 +224,7 @@ class InvoicesController extends Controller
             return response()->json([
                 'status' => 'success', 
                 'message' => 'Invoice created successfully',
-                'redirectTo' => route('invoices.create'),
+                'redirectTo' => route('invoices.index'),
                 // 'data' => compact('zohoInvoice', 'zohoAdjs'),
             ]);
 
@@ -312,6 +312,22 @@ class InvoicesController extends Controller
             return errorHandler('Error deleting Invoice!', $th);
         }
     }
+
+    /**
+     * Get Invoice due-date
+     */
+    public function getDuedate(Request $request)
+    {
+        $date = databaseDate($request->date);
+        $terms = (int) $request->terms;
+        $duedate = $date;
+        if ($terms > 0) {
+            $duedate = date('Y-m-d', strtotime($date . " +{$terms} days"));
+        } 
+
+        return response()->json(compact('duedate'));
+    }
+    
 
     /**
      * Invoice Document Upload

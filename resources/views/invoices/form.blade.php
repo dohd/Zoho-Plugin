@@ -39,7 +39,7 @@
 		<label for="invoiceDate" class="col-form-label text-danger">Invoice Date</label>
 	</div>
 	<div class="col-md-4">
-		{{ Form::date('date', null, ['class' => 'form-control', 'id' => 'invoiceDate']) }}
+		{{ Form::date('date', date('Y-m-d'), ['class' => 'form-control', 'id' => 'date']) }}
 	</div>
 	<div class="col-md-6">
 		<div class="row g-3 align-items-center ps-2">
@@ -61,7 +61,7 @@
 		<label for="dueDate" class="col-form-label">Due Date</label>
 	</div>
 	<div class="col-md-4">
-		{{ Form::date('due_date', null, ['class' => 'form-control', 'id' => 'dueDate']) }}
+		{{ Form::date('due_date', null, ['class' => 'form-control', 'id' => 'duedate']) }}
 	</div>
 </div>
 
