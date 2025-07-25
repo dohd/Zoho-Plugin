@@ -34,6 +34,33 @@ class ZohoService
         return $responseData;
     }
 
+    public function putRequest($url='',$query=[],$content=[])
+    {
+        $client = new \GuzzleHttp\Client();
+        $promise = $client->putAsync($url, [
+            'headers' => [
+                'Content-Type' => "application/json",
+                'Accept' => "application/json",
+                'Authorization' => 'Zoho-oauthtoken ' . config('ZOHO_ACCESS_TOKEN'),
+            ],
+            'query' => $query,
+            'json' => $content,
+        ]);
+        
+        $responseData = (object) [];
+        $promise->then(
+            function ($response) use(&$responseData){
+                $responseData = json_decode($response->getBody()->getContents());
+            },
+            function (Exception $e) {
+                Log::error("Zoho Post Request Error: " . $e->getMessage());
+            }
+        );
+        $promise->wait();
+
+        return $responseData;
+    }
+
     public function getRequest($url='',$query=[])
     {
         $client = new \GuzzleHttp\Client();
@@ -197,6 +224,15 @@ class ZohoService
         return $response;
     }
 
+    public function getInvoice($invoiceId)
+    {
+        $response = $this->getRequest(config('ZOHO_BASE_URL')."/invoices/{$invoiceId}", [
+            'organization_id' => config('ZOHO_ORGANIZATION_ID'),
+        ]);
+
+        return $response;
+    }
+
     public function postInvoice($model)
     {   
         $lineItems = $model->items->map(function($item) {
@@ -249,6 +285,59 @@ class ZohoService
         return $response;
     }
 
+    public function updateInvoice($model)
+    {   
+        $lineItems = $model->items->map(function($item) {
+            return [
+                "item_id" => $item->item_id,
+                "name" => $item->name,
+                "description" => $item->description,
+                "item_order" => 1,
+                "bcy_rate" => (float) @$item->invoice->currency_rate,
+                "rate" => $item->rate,
+                "quantity" => $item->quantity,
+                "unit" => $item->unit,
+                "discount" => 0,
+                "item_total" => $item->amount,
+            ];
+        });
+        $invoiceData = array_replace(config('zohotemplate.invoice'), [
+            'customer_id' => $model->customer_id,
+            'date' => $model->date,
+            'due_date' => $model->due_date,
+            "payment_terms" => $model->payment_terms, 
+            "payment_terms_label" => $model->payment_terms_label,
+            'salesperson_name' => $model->salesperson_name,
+            "is_discount_before_tax" => true,
+            "discount_type" => "item_level",
+            "is_inclusive_tax" => false,
+            "exchange_rate" => $model->currency_rate,
+            "line_items" => $lineItems,
+            'sub_total' => $model->subtotal,
+            'tax_total' => 0,
+            'total' => $model->total,
+            "notes" => $model->notes,
+            "terms" => "Terms & Conditions apply",
+            "shipping_charge" => 0,
+            "adjustment" => 0,
+            "reason" => 'Order details adjustment',
+        ]);
+        foreach ($invoiceData as $key => $val) {
+            if ($val === '' || (is_array($val) && !$val)) {
+                unset($invoiceData[$key]);
+            }
+        }
+        // dd($invoiceData);
+
+        $response = $this->putRequest(
+            config('ZOHO_BASE_URL')."/invoices/{$model->zoho_invoice_id}", 
+            ['organization_id' => config('ZOHO_ORGANIZATION_ID')],
+            $invoiceData
+        );
+
+        return $response;
+    }
+
     public function deleteInvoice($invoiceId)
     {
         $response = $this->deleteRequest(
@@ -269,6 +358,15 @@ class ZohoService
         return $response;
     }
 
+    public function getInventoryAdjustment($inventoryAdjustmentId)
+    {
+        $response = $this->getRequest(config('ZOHO_BASE_URL')."/inventoryadjustments/{$inventoryAdjustmentId}", [
+            'organization_id' => config('ZOHO_ORGANIZATION_ID'),
+        ]);
+
+        return $response;
+    }
+
     public function postInventoryAdjustment($adjustment=[])
     {
         $response = $this->postRequest(
@@ -285,6 +383,17 @@ class ZohoService
         $response = $this->deleteRequest(
             config('ZOHO_BASE_URL')."/inventoryadjustments/{$inventoryAdjustmentId}", 
             ['organization_id' => config('ZOHO_ORGANIZATION_ID')]
+        );
+
+        return $response;
+    }
+
+    public function markInventoryAdjustment($inventoryAdjustmentId)
+    {
+        $response = $this->putRequest(
+            config('ZOHO_BASE_URL')."/inventoryadjustments/{$inventoryAdjustmentId}", 
+            ['organization_id' => config('ZOHO_ORGANIZATION_ID')],
+            ['status' => 'adjusted']
         );
 
         return $response;

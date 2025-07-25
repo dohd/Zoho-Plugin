@@ -15,9 +15,14 @@
 		<label for="customer" class="col-form-label text-danger">Customer Name*</label>
 	</div>
 	<div class="col-md-4">
-		<input type="hidden" name="customer_name" id="customerName">
+		{{ Form::hidden('customer_name', null, ['id' => 'customerName']) }}
 		<select name="customer_id" id="customer" class="form-select select-w" data-placeholder="Search Customer">
 			<option></option>
+			@isset ($invoice)
+				<option value="{{ $invoice->customer_id }}" selected>
+					{{ $invoice->customer_name }}
+				</option>
+			@endisset
 		</select>
 	</div>
 	<div class="col-md-6">
@@ -39,7 +44,7 @@
 		<label for="invoiceDate" class="col-form-label text-danger">Invoice Date</label>
 	</div>
 	<div class="col-md-4">
-		{{ Form::date('date', date('Y-m-d'), ['class' => 'form-control', 'id' => 'date']) }}
+		{{ Form::date('date', @$invoice->date ?: date('Y-m-d'), ['class' => 'form-control', 'id' => 'date']) }}
 	</div>
 	<div class="col-md-6">
 		<div class="row g-3 align-items-center ps-2">
@@ -47,10 +52,9 @@
 				<label for="terms" class="col-form-label">Terms</label>
 			</div>
 			<div class="col-md-4">
-				<input type="hidden" name="payment_terms_label" id="paymentTermsLabel">
-				<input type="hidden" name="payment_terms" id="paymentTerms">
-				<select name="payment_terms_id" id="terms" class="form-select" required>					
-				</select>
+				{{ Form::hidden('payment_terms_label', null, ['id' => 'paymentTermsLabel']) }}
+				{{ Form::hidden('payment_terms', null, ['id' => 'paymentTerms']) }}
+				<select name="payment_terms_id" id="terms" class="form-select" required></select>				
 			</div>
 		</div>
 	</div>
@@ -61,7 +65,7 @@
 		<label for="dueDate" class="col-form-label">Due Date</label>
 	</div>
 	<div class="col-md-4">
-		{{ Form::date('due_date', null, ['class' => 'form-control', 'id' => 'duedate']) }}
+		{{ Form::date('due_date', @$invoice->due_date, ['class' => 'form-control', 'id' => 'duedate']) }}
 	</div>
 </div>
 
@@ -86,10 +90,16 @@
 				<label for="salesPerson" class="col-form-label">Sales Person</label>
 			</div>
 			<div class="col-md-6">
-				<input type="hidden" name="salesperson_name" id="salesPersonName">
-				<input type="hidden" name="salesperson_email" id="salesPersonEmail">
+				{{ Form::hidden('salesperson_name', null, ['id' => 'salesPersonName']) }}
+				{{ Form::hidden('salesperson_email', null, ['id' => 'salesPersonEmail']) }}
 				<select name="salesperson_id" id="salesPerson" class="form-control select-w" data-placeholder="Search Sales Person">
-				</select>
+					<option></option>
+					@isset ($invoice)
+						<option value="{{ $invoice->salesperson_id }}" selected>
+							{{ $invoice->salesperson_name }} {{ $invoice->salesperson_email? '('.$invoice->salesperson_email.')' : '' }}
+						</option>
+					@endisset
+				</select>				
 			</div>
 		</div>		
 	</div>
@@ -110,7 +120,12 @@
 				<label for="location" class="col-form-label text-danger">Location</label>
 			</div>
 			<div class="col-md-4">
+				{{ Form::hidden('location_name', null, ['id' => 'locationName']) }}
 				<select name="location_id" id="location" class="form-control select-w" data-placeholder="Search Location or Warehouse">
+					<option></option>
+					@isset ($invoice->location_name)
+					<option value="{{ $invoice->location_id }}" selected>{{ $invoice->location_name }}</option>
+					@endisset
 				</select>
 			</div>
 		</div>	
@@ -154,7 +169,7 @@
 					<td class="text-end"><h5 class="amount fw-bold" style="margin-top: 0.5rem;">0.00</h5></td>
 					<td><span class="cursor-pointer del"><i class="bi bi-x-circle text-danger"></i></span></td>
 					<input type="hidden" name="item_id[]" class="item-id">
-					<input type="hidden" name="row_index[]" class="row_-indx">
+					<input type="hidden" name="row_index[]" class="row-indx">
 					<input type="hidden" name="description[]" class="descr">
 					<input type="hidden" name="amount[]" class="amount-inp">
 					<input type="hidden" name="unit[]" class="unit">
@@ -164,6 +179,51 @@
 					<input type="hidden" name="product_type[]" class="item-type">
 					<input type="hidden" name="sku[]" class="sku">
 				</tr>
+
+				<!-- Edit invoice items -->
+				@foreach (@$invoice->items ?: [] as $i => $row)
+					@if ($row->item_id)
+						<tr class="item-row">
+							<td>
+								<textarea name="name[]" class="form-control dropdown-toggle name" data-bs-toggle="dropdown" aria-expanded="false" rows="2" placeholder="Type or click to select an item">{{ $row->name }}</textarea>
+								<ul class="dropdown-menu" style="width: 500px; max-height: 300px; overflow-y: scroll;">
+									<li class="ps-2">Type to search an item</li>
+								</ul>
+							</td>
+							<td><input type="text" name="quantity[]" value="{{ +$row->quantity }}" class="form-control qty text-end" value="1.00"></td>
+							<td><input type="text" name="rate[]" value="{{ numberFormat($row->rate) }}" class="form-control rate text-end" value="0.00"></td>
+							<td class="text-end"><h5 class="amount fw-bold" style="margin-top: 0.5rem;">{{ numberFormat($row->amount) }}</h5></td>
+							<td><span class="cursor-pointer del"><i class="bi bi-x-circle text-danger"></i></span></td>
+							<input type="hidden" name="item_id[]" value="{{ $row->item_id }}" class="item-id">
+							<input type="hidden" name="row_index[]" value="{{ $row->row_index }}" class="row-indx">
+							<input type="hidden" name="description[]" value="{{ $row->description }}" class="descr">
+							<input type="hidden" name="amount[]" value="{{ $row->amount }}" class="amount-inp">
+							<input type="hidden" name="unit[]" value="{{ $row->unit }}" class="unit">
+							<input type="hidden" name="tax_id[]" value="{{ $row->tax_id }}" class="tax-id">
+							<input type="hidden" name="tax_percentage[]" value="{{ $row->tax_percentage }}" class="tax-perc">
+							<input type="hidden" name="item_tax[]" value="{{ $row->item_tax }}" class="item-tax">
+							<input type="hidden" name="product_type[]" value="{{ $row->product_type }}" class="item-type">
+							<input type="hidden" name="sku[]" value="{{ $row->sku }}" class="sku">
+						</tr>
+					@else
+						<tr class="header-row" style="display: none;">
+							<td colspan="4"><input type="text" name="name[]" value="{{ $row->name }}" class="form-control"></td>
+							<td><span class="cursor-pointer del"><i class="bi bi-x-circle text-danger"></i></span></td>
+							<input type="hidden" name="item_id[]">
+							<input type="hidden" name="row_index[]" class="row-indx">
+							<input type="hidden" name="quantity[]">
+							<input type="hidden" name="rate[]">
+							<input type="hidden" name="description[]">
+							<input type="hidden" name="amount[]">
+							<input type="hidden" name="unit[]">
+							<input type="hidden" name="tax_id[]" class="tax-id">
+							<input type="hidden" name="tax_percentage[]" class="tax-perc">
+							<input type="hidden" name="item_tax[]" class="item-tax">
+							<input type="hidden" name="product_type[]" class="item-type">
+							<input type="hidden" name="sku[]" class="sku">
+						</tr>
+					@endif
+				@endforeach
 			</tbody>
 
 			<tfoot>

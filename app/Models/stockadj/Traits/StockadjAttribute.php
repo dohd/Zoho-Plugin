@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Models\invoice\Traits;
+namespace App\Models\stockadj\Traits;
 
-trait InvoiceAttribute
+trait StockadjAttribute
 {
     /**
      * Action Button Attribute to show in grid

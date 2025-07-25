@@ -12,7 +12,7 @@ trait InvoiceAttribute
     {
         return $this->getButtonWrapperAttribute(
             null, // $this->getViewButtonAttribute('invoices.show', 'view-invoice'),
-            null, // $this->getEditButtonAttribute('invoices.edit', 'edit-invoice'),
+            $this->getEditButtonAttribute('invoices.edit', 'edit-invoice'),
             $this->getDeleteButtonAttribute('invoices.destroy', 'delete-invoice'),
         );
     }

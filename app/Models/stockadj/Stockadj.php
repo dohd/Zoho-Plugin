@@ -2,12 +2,13 @@
 
 namespace App\Models\stockadj;
 
+use App\Models\stockadj\Traits\StockadjRelationship;
 use App\Models\ModelTrait;
 use Illuminate\Database\Eloquent\Model;
 
 class Stockadj extends Model
 {
-    // use ModelTrait, InvoiceAttribute, InvoiceRelationship;   
+    use ModelTrait, StockadjRelationship;
 
     /**
      * The database table used by the model.

@@ -55,31 +55,32 @@
                 	location_name_contains: term,
                 }),            
                 processResults: response => {
+                	let results = [];
                 	if (response.locations) {
-	                    return { 
-	                    	results: (response.locations || []).map(v => ({
-	                    		id: v.location_id,
-	                    		text: v.location_identification_number? 
-	                    			`${v.location_identification_number} - ${v.location_name}`:
-	                    			v.location_name,
-	                    	})) 
-	                    }
+                		results = (response.locations || []).map(v => ({
+                    		id: v.location_id,
+                    		text: v.location_identification_number? 
+                    			`${v.location_identification_number} - ${v.location_name}`:
+                    			v.location_name,
+                    	}));
                 	}
                 	if (response.warehouses) {
-	                    return { 
-	                    	results: (response.warehouses || []).map(v => ({
-	                    		id: v.warehouse_id,
-	                    		text: v.warehouse_name,	                    			
-	                    	})) 
-	                    }
+                		results = (response.warehouses || []).map(v => ({
+                    		id: v.warehouse_id,
+                    		text: v.warehouse_name,	                    			
+                    	}));
                 	}
-                	return {results: []};
+
+                	return {results};
                 },
             }
 		},
 	};
 
 	const Form = {
+		invoice: @json(@$invoice),
+		updateUrl: '',
+
 		headerRowHtml: $('#itemTbl .header-row:first').clone(),
 		itemRowHtml: $('#itemTbl .item-row:first').clone(),
 		itemSpinner: '<li>{!! spinner() !!}</li>',
@@ -94,26 +95,37 @@
 			$('#date, #paymentTerms').change(Form.updateDuedate);
 			$('#terms').change(Form.onChangeTerms);
 			$('#salesPerson').change(Form.onChangeSalesPerson);
+			$('#location').change(Form.onChangeLocation);
 			$('#addRow').click(Form.onClickAddRow);
 			$('#addHeader').click(Form.onClickAddHeader);
 			$('#itemTbl').on('click', '.del', Form.onClickDelete);
 			$('#itemTbl').on('keyup', '.qty, .rate', Form.onKeyQtyRate);
 			$('#itemTbl').on('click', '.dropdown-item', Form.onClickItem);
 			$('#itemTbl').on('keyup', '.name', Form.onKeyName);
-			$('#itemTbl').on('click', '.name', function() { $(this).keyup() });
+			$('#itemTbl').on('click', '.name', () => $(':focus').keyup());
 			$('form').submit(Form.onSubmit);
-
 			Form.loadPaymentTerms();
 			Form.loadCurrencies();
+
+			// Edit Mode
+			const invoice = @json(@$invoice);
+			if (invoice && invoice.id) {
+				@isset($invoice)
+				Form.updateUrl = "{{ route('invoices.update', $invoice) }}";
+				@endisset
+				$('#itemTbl tbody tr:eq(1)').remove(); 
+				$('#itemTbl .rate:last').keyup();
+				Form.updateRowIndx();
+			}
 		},
 
 		onSubmit(e) {
 			e.preventDefault();
 			$('#submitBtn').attr('disabled', true).html(`Submit ${Form.btnSpinner}`);
 			const formData = new FormData(this);
-
+			
 			$.ajax({
-			    url: "{{ route('invoices.store') }}",
+			    url: Form.updateUrl? Form.updateUrl :  "{{ route('invoices.store') }}",
 			    type: 'POST',
 			    data: formData,
 			    contentType: false,
@@ -170,6 +182,7 @@
 			.then(resp => {
 				if (resp.data && resp.data.payment_terms.length) {
 					const terms = resp.data.payment_terms;
+					$('#terms').html('');
 					terms.forEach(term => {
 						const optionEl = `
 							<option 
@@ -181,14 +194,23 @@
 							</option>`;
 						$('#terms').append(optionEl);
 					});
+
 					// Due on Receipt Term
 					$(`#terms option[terms="0"]`).attr('selected', true);
+					if (Form.invoice && Form.invoice.id) {
+						$(`#terms option[terms="${Form.invoice.payment_terms}"]`).attr('selected', true);
+					}
 					$('#terms').change();
 				}
 			})
 			.fail((xhr,status,err) => {
 				console.log(err)
 			});			
+		},
+
+		onChangeLocation() {
+			const data = $(this).select2('data')[0];
+			$('#locationName').val(data.text);
 		},
 
 		onChangeCustomer() {
@@ -246,14 +268,22 @@
 		onClickAddRow() {
 			const row = Form.itemRowHtml.clone();
 			$('#itemTbl tbody').append(row);
+			Form.updateRowIndx();
 		},
 		onClickAddHeader() {
 			const row = Form.headerRowHtml.clone();
 			row.removeAttr('style');
 			$('#itemTbl tbody').append(row);
+			Form.updateRowIndx();
 		},
 		onClickDelete() {
 			$(this).parents('tr:first').remove();
+			Form.updateRowIndx();
+		},
+		updateRowIndx() {
+			$('#itemTbl tbody tr').each(function() {
+				$(this).find('.row-indx').val($(this).index());
+			});
 		},
 
 		onKeyQtyRate() {

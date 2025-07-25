@@ -39,6 +39,7 @@ Route::group(['middleware' => 'auth'], function() {
     Route::get('invoices/items', [InvoicesController::class, 'searchItems'])->name('invoices.search_items');
     Route::get('invoices/salespersons', [InvoicesController::class, 'searchSalesPersons'])->name('invoices.search_salespersons');
     Route::get('invoices/contacts', [InvoicesController::class, 'searchContacts'])->name('invoices.search_contacts');
+    Route::post('invoices/update_status', [InvoicesController::class, 'updateStatus'])->name('invoices.update_status');
     Route::resource('invoices', InvoicesController::class);
 
     // Employees

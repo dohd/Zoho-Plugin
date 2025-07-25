@@ -1,5 +1,4 @@
 @extends('layouts.core')
-
 @section('title', 'Invoice Management')
     
 @section('content')
@@ -13,22 +12,32 @@
                         <thead>
                             <tr>
                                 <th>#</th>
-                                <th>Date</th>
-                                <th>Invoice#</th>
-                                <th>Order Number#</th>                                
-                                <th>Customer Name</th>
-                                <th>Amount</th>
-                                <th>Action</th>
+                                <th>DATE</th>
+                                <th>INVOICE#</th>
+                                <th>CUSTOMER NAME</th>
+                                <th>STATUS</th>
+                                <th>DUE DATE</th>
+                                <th>AMOUNT</th>
+                                <th>ACTION</th>
                             </tr>
                         </thead>
                         <tbody>
                             @foreach ($invoices as $i => $row)
                                 <tr>
                                     <th scope="row">{{ $i+1 }}</th>
-                                    <td>{{ dateFormat($row->date) }}</td>
+                                    <td>{{ dateFormat($row->date, 'd M Y') }}</td>
                                     <td>{{ $row->zoho_invoice_number }}</td>
-                                    <td>{{ $row->order_number  }}</td>
                                     <td>{{ $row->customer_name  }}</td>
+                                    <td>
+                                        @if ($row->zoho_status == 'draft')
+                                            <span class="badge bg-warning status-btn" style="cursor: pointer;" data-id="{{$row->id}}" data-bs-toggle="modal" data-bs-target="#statusModal">
+                                                draft<i class="bi bi-caret-down-fill"></i>
+                                            </span>
+                                        @elseif ($row->zoho_status == 'confirmed')
+                                            <span class="badge bg-success">confirmed</span>
+                                        @endif
+                                    </td>
+                                    <td>{{ dateFormat($row->due_date, 'd M Y') }}</td>
                                     <td>{{ numberFormat($row->total)  }}</td>
                                     <td>{!! $row->action_buttons !!}</td>
                                 </tr>
@@ -39,10 +48,13 @@
             </div>
         </div>
     </div>
+    @include('invoices.partial.status_modal')
 @stop
 
 @section('script')
 <script>
-    
+    $('.status-btn').click(function() {
+        $('#invoiceId').val($(this).attr('data-id'));
+    });
 </script>    
 @stop
