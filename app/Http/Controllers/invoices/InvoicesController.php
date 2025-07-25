@@ -130,6 +130,7 @@ class InvoicesController extends Controller
             $dataItems['user_id'] = array_fill(0, count($dataItems['name']), @$invoice->user_id);
             $dataItems = databaseArray($dataItems);
             $dataItems = array_filter($dataItems, fn($v) => $v['name']);
+            if (!$dataItems) throw new Exception('Invoice order items are required');
             InvoiceItem::insert($dataItems);
 
             // Post zoho invoice
@@ -229,6 +230,7 @@ class InvoicesController extends Controller
         } catch (Exception $e) {
             $msg = $e->getMessage() . ' ' . $e->getFile() . ' ' . $e->getLine();
             Log::error($msg);
+            $msg = $e->getMessage();
 
             // Clear Zoho Entries
             foreach ($zohoAdjs as $zohoAdj) {
@@ -356,6 +358,7 @@ class InvoicesController extends Controller
             $dataItems['user_id'] = array_fill(0, count($dataItems['name']), @$invoice->user_id);
             $dataItems = databaseArray($dataItems);
             $dataItems = array_filter($dataItems, fn($v) => $v['name']);
+            if (!$dataItems) throw new Exception('Invoice order items are required');
             $invoice->items()->delete();
             $invoice->items()->insert($dataItems);
 
@@ -463,6 +466,7 @@ class InvoicesController extends Controller
         } catch (Exception $e) {
             $msg = $e->getMessage() . ' ' . $e->getFile() . ' ' . $e->getLine();
             Log::error($msg);
+            $msg = $e->getMessage();
 
             // capture Zoho Error
             if ($e instanceof RequestException && $e->hasResponse()) {
@@ -473,18 +477,7 @@ class InvoicesController extends Controller
                 $error = json_decode($errorBody, true);
                 $msg = "Zoho Error: " . ($error['message'] ?? $errorBody);
                 Log::error($msg);
-            } 
-
-            // clear Zoho inventory adjustments
-            // foreach ($zohoAdjs as $zohoAdj) {
-            //     $this->service->deleteInventoryAdjustment($zohoAdj->inventory_adjustment_id);
-            //     Log::info('Zoho Adjustment Cleared: ' . $zohoAdj->inventory_adjustment_id);
-            // }
-            // if ($zohoInvoice) {
-            //     $this->service->deleteInvoice($zohoInvoice->invoice_id);
-            //     Log::info('Zoho Invoice Cleared: ' . $zohoInvoice->invoice_id);
-            // }
-            
+            }             
             
             return response()->json([
                 'status' => 'error', 
@@ -517,6 +510,8 @@ class InvoicesController extends Controller
         } catch (Exception $e) {
             $msg = $e->getMessage() . ' ' . $e->getFile() . ' ' . $e->getLine();
             Log::error($msg);
+            $msg = $e->getMessage();
+
             // capture Zoho Error
             if ($e instanceof RequestException && $e->hasResponse()) {
                 $response = $e->getResponse();
@@ -527,6 +522,7 @@ class InvoicesController extends Controller
                 $msg = "Zoho Error: " . ($error['message'] ?? $errorBody);
                 Log::error($msg);
             } 
+            
             return response()->json([
                 'status' => 'error', 
                 'message' => 'Invoice update failed! ' . $msg,
