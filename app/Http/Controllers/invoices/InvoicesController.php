@@ -497,15 +497,21 @@ class InvoicesController extends Controller
 
             $invoiceBuk = "";
             $adjustmentBuk = "";
-            if (isset($invoiceResp->invoice)) $invoiceBuk = json_encode($invoiceResp->invoice);
-            if (isset($adjustmentResp->inventory_adjustment)) $adjustmentBuk = json_encode($adjustmentResp->inventory_adjustment);
-            Log::info('Invoice buk: ' . $invoiceBuk);
-            Log::info('Adjustment buk: ' . $adjustmentBuk);
+            if (isset($invoiceResp->invoice)) {
+                $invoiceBuk = json_encode($invoiceResp->invoice);
+                $invoice->update([
+                    'invoice_buk' => $invoiceBuk,
+                ]);
+            }
+            if (isset($adjustmentResp->inventory_adjustment)) {
+                $adjustmentBuk = json_encode($adjustmentResp->inventory_adjustment);
+                $invoice->update([
+                    'stockadj_buk' => $adjustmentBuk,
+                ]);
+            }
+            Log::info('Invoice-buk: ' . $invoiceBuk);
+            Log::info('Adjustment-buk: ' . $adjustmentBuk);
 
-            $invoice->update([
-                'invoice_buk' => $invoiceBuk,
-                'stockadj_buk' => $adjustmentBuk,
-            ]);
             return true;
         } catch (Exception $e) {
             $msg = $e->getMessage() . ' ' . $e->getFile() . ' ' . $e->getLine();
