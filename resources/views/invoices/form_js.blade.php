@@ -123,7 +123,7 @@
 			e.preventDefault();
 			$('#submitBtn').attr('disabled', true).html(`Submit ${Form.btnSpinner}`);
 			const formData = new FormData(this);
-			
+
 			$.ajax({
 			    url: Form.updateUrl? Form.updateUrl :  "{{ route('invoices.store') }}",
 			    type: 'POST',
