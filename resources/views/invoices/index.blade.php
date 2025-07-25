@@ -33,8 +33,8 @@
                                             <span class="badge bg-warning status-btn" style="cursor: pointer;" data-id="{{$row->id}}" data-bs-toggle="modal" data-bs-target="#statusModal">
                                                 draft<i class="bi bi-caret-down-fill"></i>
                                             </span>
-                                        @elseif ($row->zoho_status == 'confirmed')
-                                            <span class="badge bg-success">confirmed</span>
+                                        @else
+                                            <span class="badge bg-success">{{ $row->zoho_status }}</span>
                                         @endif
                                     </td>
                                     <td>{{ dateFormat($row->due_date, 'd M Y') }}</td>
