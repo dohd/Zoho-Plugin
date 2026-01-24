@@ -69,7 +69,7 @@
 	</div>
 </div>
 
-<div class="row g-3 align-items-center mb-2">
+<div class="row g-3 align-items-center mb-4">
 	<div class="col-md-2">
 		<label for="orderNo" class="col-form-label">Order Number</label>
 	</div>
@@ -77,31 +77,73 @@
 		{{ Form::text('order_no', null, ['class' => 'form-control', 'id' => 'orderNo']) }}
 	</div>
 </div>
-<div class="row g-3 align-items-center mb-4 mt-2">
+<hr>
+<div class="row g-3 align-items-center mb-3">
 	<div class="col-md-2">
-		<label for="description" class="col-form-label">Description</label>
+		<label for="salesPerson" class="col-form-label">Sales Person</label>
+	</div>
+	<div class="col-md-4">
+		{{ Form::hidden('salesperson_name', null, ['id' => 'salesPersonName']) }}
+		{{ Form::hidden('salesperson_email', null, ['id' => 'salesPersonEmail']) }}
+		<select name="salesperson_id" id="salesPerson" class="form-control select-w" data-placeholder="Search Sales Person">
+			<option></option>
+			@isset ($invoice)
+				<option value="{{ $invoice->salesperson_id }}" selected>
+					{{ $invoice->salesperson_name }} {{ $invoice->salesperson_email? '('.$invoice->salesperson_email.')' : '' }}
+				</option>
+			@endisset
+		</select>				
+	</div>
+</div>
+<div class="row g-3 align-items-center mb-3">
+	<div class="col-md-6">
+		<div class="row g-3 align-items-center ps-2">
+			<div class="col-md-4">
+				<label for="terms" class="col-form-label">Loyalty Qualifier</label>
+			</div>
+			<div class="col-md-8">
+				@php
+					$qualifiers = [
+						"Other treatments",
+						"Braces / Cosmetic treatment",
+						"Referral of a new patient",
+						"Adhering to 6-month hygiene recall",
+						"Free dental kit",
+						"Cleaning / Fluoride",
+						"Whitening / Night guard",
+						"Free cleaning / Child consultation",
+						"Orthodontic / Cosmetic treatment",
+					];
+				@endphp
+				<select name="cf_loyalty_points_qualifier" id="loyalty-quailifier" class="form-select">
+					<option value="">-- Select Loyalty Points Qualifier --</option>
+					@foreach ($qualifiers as $value)
+						<option value="{{ $value }}" {{ @$invoice->cf_loyalty_points_qualifier === $value? 'selected' : '' }}>
+							{{ $value }}
+						</option>
+					@endforeach
+				</select>				
+			</div>
+		</div>
+	</div>	
+	<div class="col-md-6">
+		<div class="row g-3 align-items-center ps-2">
+			<div class="col-md-4">
+				<div class="form-check">
+				 	<input class="form-check-input" type="checkbox" name="cf_redeem_points" 
+				 		value="1" id="redeem-points" @isset($invoice->cf_redeem_points) checked @endisset>
+				    <label class="form-check-label" for="redeemPoints">Redeem Points</label>				  
+				</div>
+			</div>
+		</div>
+	</div>	
+</div>
+<div class="row g-3 align-items-center mb-4 mt-3">
+	<div class="col-md-2">
+		<label for="description" class="col-form-label">Subject</label>
 	</div>
 	<div class="col-md-4">
 		{{ Form::textarea('description', null, ['class' => 'form-control', 'id' => 'description', 'rows' => '1', 'placeholder' => 'What is this invoice for']) }}
-	</div>
-	<div class="col-md-6">
-		<div class="row g-3 align-items-center">
-			<div class="col-md-3" style="max-width: 120px;">
-				<label for="salesPerson" class="col-form-label">Sales Person</label>
-			</div>
-			<div class="col-md-6">
-				{{ Form::hidden('salesperson_name', null, ['id' => 'salesPersonName']) }}
-				{{ Form::hidden('salesperson_email', null, ['id' => 'salesPersonEmail']) }}
-				<select name="salesperson_id" id="salesPerson" class="form-control select-w" data-placeholder="Search Sales Person">
-					<option></option>
-					@isset ($invoice)
-						<option value="{{ $invoice->salesperson_id }}" selected>
-							{{ $invoice->salesperson_name }} {{ $invoice->salesperson_email? '('.$invoice->salesperson_email.')' : '' }}
-						</option>
-					@endisset
-				</select>				
-			</div>
-		</div>		
 	</div>
 </div>
 <hr>

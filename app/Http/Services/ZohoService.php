@@ -268,7 +268,22 @@ class ZohoService
             "terms" => "Terms & Conditions apply",
             "shipping_charge" => 0,
             "adjustment" => 0,
+            "custom_fields" => [],
         ]);
+        // append custom fields
+        if (isset($model->cf_loyalty_points_qualifier)) {
+            $invoiceData['custom_fields'][] = [
+                "api_name" => "cf_loyalty_points_qualifier",
+                "value" => $model->cf_loyalty_points_qualifier,
+            ];
+        } elseif (isset($model->cf_redeem_points)) {
+            $invoiceData['custom_fields'][] = [
+                "api_name" => "cf_redeem_points",
+                "value" => (bool) $model->cf_redeem_points,
+            ];
+        }
+
+        // sanitize invoice data
         foreach ($invoiceData as $key => $val) {
             if ($val === '' || (is_array($val) && !$val)) {
                 unset($invoiceData[$key]);
@@ -321,7 +336,23 @@ class ZohoService
             "shipping_charge" => 0,
             "adjustment" => 0,
             "reason" => 'Order details adjustment',
+            "custom_fields" => [],
         ]);
+
+        // append custom fields
+        if (isset($model->cf_loyalty_points_qualifier)) {
+            $invoiceData['custom_fields'][] = [
+                "api_name" => "cf_loyalty_points_qualifier",
+                "value" => $model->cf_loyalty_points_qualifier,
+            ];
+        } elseif (isset($model->cf_redeem_points)) {
+            $invoiceData['custom_fields'][] = [
+                "api_name" => "cf_redeem_points",
+                "value" => (bool) $model->cf_redeem_points,
+            ];
+        }
+
+        // sanitize
         foreach ($invoiceData as $key => $val) {
             if ($val === '' || (is_array($val) && !$val)) {
                 unset($invoiceData[$key]);

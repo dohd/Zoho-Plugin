@@ -125,6 +125,7 @@ class InvoicesController extends Controller
 
             // create local invoice
             $invoice = Invoice::create($data);
+
             // create local invoice items
             $dataItems['invoice_id'] = array_fill(0, count($dataItems['name']), @$invoice->id);
             $dataItems['user_id'] = array_fill(0, count($dataItems['name']), @$invoice->user_id);
@@ -353,6 +354,7 @@ class InvoicesController extends Controller
             // update local invoice
             $data['updated_by'] = auth()->user()->id;
             $result = $invoice->update($data);
+            
             // update local invoice items
             $dataItems['invoice_id'] = array_fill(0, count($dataItems['name']), @$invoice->id);
             $dataItems['user_id'] = array_fill(0, count($dataItems['name']), @$invoice->user_id);
