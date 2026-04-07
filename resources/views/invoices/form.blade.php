@@ -201,10 +201,12 @@
 				</tr>
 				<tr class="item-row">
 					<td>
-						<textarea name="name[]" class="form-control dropdown-toggle name" data-bs-toggle="dropdown" aria-expanded="false" rows="2" placeholder="Type or click to select an item"></textarea>
-						<ul class="dropdown-menu" style="width: 500px; max-height: 300px; overflow-y: scroll;">
-							<li class="ps-2">Type to search an item</li>
-						</ul>
+						<div class="dropdown">
+							<textarea name="name[]" class="form-control dropdown-toggle name" data-bs-toggle="dropdown" aria-expanded="false" rows="2" placeholder="Type or click to select an item"></textarea>
+							<ul class="dropdown-menu" style="width: 500px; max-height: 300px; overflow-y: scroll;">
+								<li class="ps-2">Type to search an item</li>
+							</ul>							
+						</div>
 					</td>
 					<td><input type="text" name="quantity[]" class="form-control qty text-end" value="1.00"></td>
 					<td><input type="text" name="rate[]" class="form-control rate text-end" value="0.00"></td>
@@ -227,10 +229,12 @@
 					@if ($row->item_id)
 						<tr class="item-row">
 							<td>
-								<textarea name="name[]" class="form-control dropdown-toggle name" data-bs-toggle="dropdown" aria-expanded="false" rows="2" placeholder="Type or click to select an item">{{ $row->name }}</textarea>
-								<ul class="dropdown-menu" style="width: 500px; max-height: 300px; overflow-y: scroll;">
-									<li class="ps-2">Type to search an item</li>
-								</ul>
+								<div class="dropdown">
+									<textarea name="name[]" class="form-control dropdown-toggle name" data-bs-toggle="dropdown" aria-expanded="false" rows="2" placeholder="Type or click to select an item">{{ $row->name }}</textarea>
+									<ul class="dropdown-menu" style="width: 500px; max-height: 300px; overflow-y: scroll;">
+										<li class="ps-2">Type to search an item</li>
+									</ul>									
+								</div>
 							</td>
 							<td><input type="text" name="quantity[]" value="{{ +$row->quantity }}" class="form-control qty text-end" value="1.00"></td>
 							<td><input type="text" name="rate[]" value="{{ numberFormat($row->rate) }}" class="form-control rate text-end" value="0.00"></td>

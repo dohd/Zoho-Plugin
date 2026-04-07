@@ -105,9 +105,11 @@
 			$('#itemTbl').on('click', '.del', Form.onClickDelete);
 			$('#itemTbl').on('keyup', '.qty, .rate', Form.onKeyQtyRate);
 			$('#itemTbl').on('click', '.dropdown-item', Form.onClickItem);
-			$('#itemTbl').on('keyup', '.name', Form.debounce(Form.onKeyName, 250));
-			$('#itemTbl').on('click', '.name', Form.onKeyName);
 			
+			$('#itemTbl').on('keyup', '.name', Form.debounce(Form.onKeyUpName, 300));
+			$('#itemTbl').on('click', '.name', Form.onKeyUpName);
+			$('#itemTbl').on('keydown', '.name', Form.onKeyDownName);
+
 			// Edit Mode
 			const invoice = @json(@$invoice);
 			if (invoice && invoice.id) {
@@ -276,14 +278,22 @@
 			};
 		},
 
+		onKeyDownName() {
+		  const dropdown = bootstrap.Dropdown.getOrCreateInstance(this);
+		  const menu = $(this).siblings('.dropdown-menu');
+		  // Only show if it's currently hidden
+		  if (!menu.hasClass('show')) {
+		    dropdown.show();
+		  }
+		},
+
 		currentNameSearchReq: null,
-		onKeyName() {
+		onKeyUpName() {
 			const dropdown = $(this).next();
 			dropdown.html(Form.itemSpinner);
 
 			// Abort previous request if still running
 			if (Form.currentNameSearchReq && Form.currentNameSearchReq.readyState !== 4) {
-				console.log(Form.currentNameSearchReq)
 				Form.currentNameSearchReq.abort();
 			}
 
@@ -294,8 +304,18 @@
 			      filter_by: 'Status.Active',
 			      per_page: 6,
 			    },
-			    success: resp => resp? dropdown.html(resp) : dropdown.html('<li class="text-danger ps-2">Item could not be found ...<li>'),
-			    error: () => dropdown.html('<li class="text-danger ps-2">Error Loading Data ...<li>')
+			    success: resp => {
+			    	return resp? dropdown.html(resp) : dropdown.html('<li class="text-danger ps-2">Item could not be found ...<li>');
+			    },
+			    error: (xhr, status, err) => {
+			      if (status === 'abort') {
+			        // Friendly handling for canceled requests
+			        dropdown.html('<li class="text-muted ps-2">Searching…</li>');
+			      } else {
+			        dropdown.html('<li class="text-danger ps-2">Error loading data</li>');
+			        console.error(err);
+			      }
+			    }
 			});
 		},
 
