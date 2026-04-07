@@ -90,7 +90,7 @@
   @yield('script')
 
   <!-- Livewire JS -->
-  @livewireScripts
+  {{-- @livewireScripts --}}
 </body>
 
 </html>

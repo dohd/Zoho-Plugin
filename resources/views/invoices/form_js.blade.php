@@ -91,6 +91,10 @@
 			$('#salesPerson').select2(config.salesPersonSelect2);
 			$('#location').select2(config.locationSelect2);
 
+			$('form').submit(Form.onSubmit);
+			Form.loadPaymentTerms();
+			Form.loadCurrencies();
+
 			$('#customer').change(Form.onChangeCustomer);
 			$('#date, #paymentTerms').change(Form.updateDuedate);
 			$('#terms').change(Form.onChangeTerms);
@@ -101,12 +105,9 @@
 			$('#itemTbl').on('click', '.del', Form.onClickDelete);
 			$('#itemTbl').on('keyup', '.qty, .rate', Form.onKeyQtyRate);
 			$('#itemTbl').on('click', '.dropdown-item', Form.onClickItem);
-			$('#itemTbl').on('keyup', '.name', Form.onKeyName);
-			$('#itemTbl').on('click', '.name', () => $(':focus').keyup());
-			$('form').submit(Form.onSubmit);
-			Form.loadPaymentTerms();
-			Form.loadCurrencies();
-
+			$('#itemTbl').on('keyup', '.name', Form.debounce(Form.onKeyName, 250));
+			$('#itemTbl').on('click', '.name', Form.onKeyName);
+			
 			// Edit Mode
 			const invoice = @json(@$invoice);
 			if (invoice && invoice.id) {
@@ -234,25 +235,6 @@
 			$('#paymentTerms').val(opt.attr('terms')).change();
 		},
 
-		onKeyName() {
-			const dropdown = $(this).next();
-			dropdown.html(Form.itemSpinner);
-			setTimeout(() => {
-				$.get("{{ route('invoices.search_items') }}", {
-					name_contains: $(this).val(),
-					filter_by: 'Status.Active',
-					per_page: 6,
-				})
-				.then(resp => {
-					dropdown.html(resp);
-				})
-				.fail((xhr,status,err) => {
-					dropdown.html(`<li class="text-danger ps-2">Error Loading Data ...<li>`);
-					console.log(err);
-				});
-			}, 250);
-		},
-
 		onClickItem() {
 			const rate = accounting.unformat($(this).attr('rate'));
 			const tr = $(this).parents('tr:first');
@@ -283,6 +265,37 @@
 		updateRowIndx() {
 			$('#itemTbl tbody tr').each(function() {
 				$(this).find('.row-indx').val($(this).index());
+			});
+		},
+
+		debounce(fn, delay) {
+			let timer;
+			return function(...args) {
+			    clearTimeout(timer);
+			    timer = setTimeout(() => fn.apply(this, args), delay);
+			};
+		},
+
+		currentNameSearchReq: null,
+		onKeyName() {
+			const dropdown = $(this).next();
+			dropdown.html(Form.itemSpinner);
+
+			// Abort previous request if still running
+			if (Form.currentNameSearchReq && Form.currentNameSearchReq.readyState !== 4) {
+				console.log(Form.currentNameSearchReq)
+				Form.currentNameSearchReq.abort();
+			}
+
+			Form.currentNameSearchReq = $.ajax({
+			    url: "{{ route('invoices.search_items') }}",
+			    data: {
+			      name_contains: $(this).val(),
+			      filter_by: 'Status.Active',
+			      per_page: 6,
+			    },
+			    success: resp => resp? dropdown.html(resp) : dropdown.html('<li class="text-danger ps-2">Item could not be found ...<li>'),
+			    error: () => dropdown.html('<li class="text-danger ps-2">Error Loading Data ...<li>')
 			});
 		},
 
