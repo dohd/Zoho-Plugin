@@ -32,10 +32,20 @@ class InvoicesController extends Controller
      */
     public function index()
     {
-        $invoices = Invoice::whereNull('deleted_at')->latest()->get();
-
-        return view('invoices.index', compact('invoices'));
+        return view('invoices.index');
     }
+
+    public function datatable()
+    {
+        $invoices = Invoice::whereNull('deleted_at')
+            ->latest()
+            ->limit(request('limit'))
+            ->offset(request('offset'))
+            ->get();
+
+        return view('invoices.partial.datatable', compact('invoices'));
+    }
+
 
     /**
      * Show the form for creating a new resource.

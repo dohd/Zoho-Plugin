@@ -8,7 +8,17 @@
             <h5 class="card-title">Invoice Management</h5>
             <div class="card-content p-2">
                 <div class="table-responsive">
-                    <table class="table table-borderless datatable">
+                    <!-- LIMIT CONTROL -->
+                    <label>
+                        <select id="dbLimit" onchange="updateLimit()">
+                          <option value="10" selected>10</option>
+                          <option value="25">25</option>
+                          <option value="50">50</option>
+                          <option value="200">200</option>
+                        </select> entries per page
+                      </label>  
+
+                    <table class="table table-borderless" id="invoices">
                         <thead>
                             <tr>
                                 <th>#</th>
@@ -21,29 +31,16 @@
                                 <th>ACTION</th>
                             </tr>
                         </thead>
-                        <tbody>
-                            @foreach ($invoices as $i => $row)
-                                <tr>
-                                    <th scope="row">{{ $i+1 }}</th>
-                                    <td>{{ dateFormat($row->date, 'd M Y') }}</td>
-                                    <td>{{ $row->zoho_invoice_number }}</td>
-                                    <td>{{ $row->customer_name  }}</td>
-                                    <td>
-                                        @if ($row->zoho_status == 'draft')
-                                            <span class="badge bg-warning status-btn" style="cursor: pointer;" data-id="{{$row->id}}" data-bs-toggle="modal" data-bs-target="#statusModal">
-                                                draft<i class="bi bi-caret-down-fill"></i>
-                                            </span>
-                                        @else
-                                            <span class="badge bg-success">{{ $row->zoho_status }}</span>
-                                        @endif
-                                    </td>
-                                    <td>{{ dateFormat($row->due_date, 'd M Y') }}</td>
-                                    <td>{{ numberFormat($row->total)  }}</td>
-                                    <td>{!! $row->action_buttons !!}</td>
-                                </tr>
-                            @endforeach
+                        <tbody>                            
                         </tbody>
                     </table>
+                </div>
+
+                <!-- Custom Database Pagination Sync Controllers -->
+                <div class="custom-pagination">
+                  <button class="btn btn-outline-primary btn-sm" onclick="navigatePage(-1)">Previous</button>
+                  <span id="pageLabel">Page 1</span>
+                  <button class="btn btn-outline-primary btn-sm" onclick="navigatePage(1)">Next</button>
                 </div>
             </div>
         </div>
@@ -55,6 +52,81 @@
 <script>
     $('.status-btn').click(function() {
         $('#invoiceId').val($(this).attr('data-id'));
+    });
+
+    // 1. Initialize simple-datatables with client paging off
+    let dataTableInstance = new simpleDatatables.DataTable("#invoices", {
+        paging: false, // 👈 Stop client-side paging; backend handles it
+        searchable: true,
+        sortable: true
+    });
+
+    // 2. Global Pagination State
+    let currentPage = 1;
+    let currentLimit = 10;
+
+    // 3. Main Data Orchestrator
+    async function loadServerData() {
+        // Calculate standard database offset
+        const calculatedOffset = (currentPage - 1) * currentLimit;
+
+        try {
+            // Fetch specific slice from your DB
+            const url = "{{ route('invoices.datatable') }}";
+            const response = await fetch(`${url}?limit=${currentLimit}&offset=${calculatedOffset}`);
+            const htmlRows = await response.text(); // 👈 Use .text() instead of .json()
+
+            // 3. Properly cycle the datatable instance to prevent memory leaks
+            if (dataTableInstance) {
+                dataTableInstance.destroy();
+            }
+
+            // 4. Inject the raw HTML string into the empty table body container
+            document.querySelector("#invoices tbody").innerHTML = htmlRows;
+
+            // 5. Re-initialize the library so it can read and style the new HTML
+            dataTableInstance = new simpleDatatables.DataTable("#invoices", {
+                paging: false, // Keep disabled so it doesn't conflict with server pages
+                searchable: true,
+                sortable: true
+            });  
+
+            // LISTEN FOR THE RENDER LIFECYCLE COMPLETE EVENT
+            dataTableInstance.on("datatable.init", () => {
+                Index.appendExtrasOnAction();
+            });            
+            // Listen for search events
+            dataTableInstance.on("datatable.search", function(query, matchedRows) {
+              Index.appendExtrasOnAction();
+            });
+            // Listen for page change events
+            dataTableInstance.on("datatable.page", function(pageNumber) {
+              Index.appendExtrasOnAction();
+            });           
+
+            // Update UI indicator text
+            document.getElementById("pageLabel").textContent = `Page ${currentPage}`;
+        } catch (error) {
+            console.error("Database data synchronization failed:", error);
+        }
+    }
+
+    // 4. UI Interaction Handlers
+    function updateLimit() {
+        currentLimit = parseInt(document.getElementById("dbLimit").value);
+        currentPage = 1; // Reset to start index to avoid out-of-bounds offsets
+        loadServerData();
+    }
+
+    function navigatePage(direction) {
+        if (currentPage + direction < 1) return; // Block negative offsets
+        currentPage += direction;
+        loadServerData();
+    }
+
+    // Initial Boot Lifecycle Load
+    document.addEventListener("DOMContentLoaded", () => {
+        loadServerData();
     });
 </script>    
 @stop
