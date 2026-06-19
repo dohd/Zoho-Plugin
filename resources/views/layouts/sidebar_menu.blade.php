@@ -7,36 +7,25 @@
       </a>
     </li>
 
+    <li class="nav-heading">CRM</li>
+    <li class="nav-item">
+      <a class="nav-link collapsed" data-bs-target="#whatsapp" data-bs-toggle="collapse" href="#">      
+        <i class="bi bi-whatsapp"></i><span>Whatsapp</span><i class="bi bi-chevron-down ms-auto"></i>        
+      </a>
+      <ul id="whatsapp" class="nav-content" data-bs-parent="#sidebar-nav">
+        <li><a href="{{ route('whatsapp.overview') }}"><i class="bi bi-circle"></i><span>Overview</span></a></li> 
+        <li><a href="{{ route('whatsapp.customer_rating') }}"><i class="bi bi-circle"></i><span>Customer Rating</span></a></li>        
+        <li><a href="{{ route('whatsapp.message_log') }}"><i class="bi bi-circle"></i><span>WhatsApp Log</span></a></li>              
+      </ul>
+    </li> 
+
     <li class="nav-heading">Sales</li>
     <li class="nav-item">
       <a class="nav-link collapsed" href="{{ route('invoices.index') }}">
-        <i class="bi bi-clipboard2-pulse"></i><span>Invoice Management</span>
+        <i class="bi bi-clipboard2-pulse"></i><span>Invoices</span>
       </a>
     </li>
 
-    <!-- <li class="nav-heading">Report Center</li>
-    <li class="nav-item">
-      <a class="nav-link collapsed" href="{{ route('reports.employee_by_designation') }}">
-        <i class="bi bi-clipboard2-pulse"></i><span>Employee By Designation</span>
-      </a>
-    </li>
-    <li class="nav-item">
-      <a class="nav-link collapsed" href="{{ route('reports.employee_by_work_county') }}">
-        <i class="bi bi-clipboard2-pulse"></i><span>Employee By Work-County</span>
-      </a>
-    </li>
-    <li class="nav-item">
-      <a class="nav-link collapsed" href="{{ route('reports.employee_by_skill_level') }}">
-        <i class="bi bi-clipboard2-pulse"></i><span>Employee By Skill-Level</span>
-      </a>
-    </li>
-
-    <li class="nav-heading">Data Import</li>
-    <li class="nav-item">
-      <a class="nav-link collapsed" href="{{ route('file_imports.index') }}">
-        <i class="bi bi-clipboard2-pulse"></i><span>Employee Import</span>
-      </a>
-    </li> -->
 
     <li class="nav-heading">Settings</li>
     <!-- user management -->

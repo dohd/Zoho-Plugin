@@ -9,6 +9,7 @@ use App\Http\Controllers\invoices\InvoicesController;
 use App\Http\Controllers\medical_insurers\MedicalInsurersController;
 use App\Http\Controllers\reports\ReportsController;
 use App\Http\Controllers\user_profile\UserProfileController;
+use App\Http\Controllers\whatsapp\WhatsAppController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
@@ -32,6 +33,7 @@ Route::group(['middleware' => 'auth'], function() {
     Route::get('dashboard', [HomeController::class, 'index'])->name('home');
 
     // Invoices
+    Route::get('invoices/datatable', [InvoicesController::class, 'datatable'])->name('invoices.datatable');
     Route::get('invoices/duedate', [InvoicesController::class, 'getDuedate'])->name('invoices.get_duedate');
     Route::get('invoices/currencies', [InvoicesController::class, 'currencies'])->name('invoices.currencies');
     Route::get('invoices/itemlocations', [InvoicesController::class, 'itemLocations'])->name('invoices.itemlocations');
@@ -42,29 +44,18 @@ Route::group(['middleware' => 'auth'], function() {
     Route::post('invoices/update_status', [InvoicesController::class, 'updateStatus'])->name('invoices.update_status');
     Route::resource('invoices', InvoicesController::class);
 
-    // Employees
-    Route::get('employees/document_download/{doc}', [EmployeesController::class, 'documentDownload'])->name('employees.document_download');
-    Route::post('employees/document_upload', [EmployeesController::class, 'documentUpload'])->name('employees.document_upload');
-    Route::resource('employees', EmployeesController::class);
-
-    // Medical Insurers
-    Route::resource('medical_insurers', MedicalInsurersController::class);
+    // whatsapp
+    Route::get('whatsapp/overview', [WhatsAppController::class, 'overview'])->name('whatsapp.overview');
+    Route::get('whatsapp/customer_rating', [WhatsAppController::class, 'customerRating'])->name('whatsapp.customer_rating');
+    Route::get('whatsapp/message_log', [WhatsAppController::class, 'messageLog'])->name('whatsapp.message_log');
+    Route::get('whatsapp/message_log_datatable', [WhatsAppController::class, 'messageLogDatatable'])->name('whatsapp.message_log_datatable');
+    Route::get('whatsapp/customer_rating_datatable', [WhatsAppController::class, 'customerRatingDatatable'])->name('whatsapp.customer_rating_datatable');    
 
     // User Profiles
     Route::post('user_profiles/delete_profile_pic/{user}', [UserProfileController::class, 'delete_profile_pic'])->name('user_profiles.delete_profile_pic');
     Route::post('user_profiles/update_active_profile/{user}', [UserProfileController::class, 'update_active_profile'])->name('user_profiles.update_active_profile');
     Route::get('user_profiles/active_profile', [UserProfileController::class, 'active_profile'])->name('user_profiles.active_profile');
-    Route::resource('user_profiles', UserProfileController::class);
-
-    // File Import
-    Route::get('file_imports/download/{template}', [FileImportsController::class, 'downloadTemplate'])->name('file_imports.download_template');
-    Route::post('file_imports/datatable', [FileImportsController::class, 'datatable'])->name('file_imports.datatable');
-    Route::resource('file_imports', FileImportsController::class);
-
-    // Reports
-    Route::get('reports/employee_by_designation', [ReportsController::class, 'employeeByDesignation'])->name('reports.employee_by_designation');
-    Route::get('reports/employee_by_work_county', [ReportsController::class, 'employeeByWorkCounty'])->name('reports.employee_by_work_county');
-    Route::get('reports/employee_by_skill_level', [ReportsController::class, 'employeeBySkillLevel'])->name('reports.employee_by_skill_level');
+    Route::resource('user_profiles', UserProfileController::class);    
 
     // Configuration
     Route::get('clear-cache', [ConfigController::class, 'clear_cache'])->name('config.clear_cache');
