@@ -43,6 +43,7 @@ class CreateCustomerRatingsTable extends Migration
             $table->string('twilio_from', 50)->nullable();
             $table->string('twilio_to', 50)->nullable();
             $table->string('last_message_sid', 100)->nullable();
+            $table->tinyInteger('is_opt_out')->default(0);
 
             $table->dateTime('sent_at')->nullable();
             $table->dateTime('rating_received_at')->nullable();

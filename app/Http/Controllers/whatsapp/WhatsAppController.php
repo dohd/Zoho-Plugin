@@ -5,6 +5,7 @@ namespace App\Http\Controllers\whatsapp;
 use App\Http\Controllers\Controller;
 use App\Models\whatsapp\CustomerRating;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
 use Twilio\Exceptions\TwilioException;
 use Twilio\Rest\Client;
 use Illuminate\Support\Str;
@@ -133,11 +134,51 @@ class WhatsAppController extends Controller
 
     public function paymentReceiptNotice(Request $request)
     {
+        $expectedKey = env('DELUGE_AUTH');
+        $providedKey = $request->header('X-DELUGE-AUTH');
+        if (!$providedKey || $providedKey !== $expectedKey) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Unauthorized: Invalid or missing API Key.'
+            ], 401);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'customer_id' => 'required', 
+            'invoice_id' => 'required', 
+            'payment_received_id' => 'required', 
+            'invoice_no' => 'required', 
+            'payment_received_no' => 'required', 
+            'customer_name' => 'required', 
+            'phone_number' => 'required'
+        ], [
+            // 'customer_id.required' => 'Customer is required',
+        ]);
+        if ($validator->fails()) {
+            $errors = $validator->errors(); // This is a MessageBag
+            // Get all errors as array
+            $errorMessages = $errors->all();
+            // Get specific field errors
+            // $customerErrors = $errors->get('customer_id');
+            return response()->json([
+                'status' => 'error', 
+                'message' => 'Validation failed! ' . implode(', ', $errorMessages),
+                'errors' => $errors
+            ], 422);
+        }
+
         $input = $request->only(['customer_id', 'invoice_id', 'payment_received_id', 'invoice_no', 'payment_received_no', 'customer_name', 'phone_number']);
 
         try {
-            $to = str_replace('whatsapp:', '', $this->formatToWhatsAppNumber(request('phone_number')));
+            // check if customer opted-out
+            $optOutExists = CustomerRating::where('customer_id', $input['customer_id'])->where('is_opt_out', 1)->exists();
+            if ($optOutExists) {
+                return response()->json([
+                    'message' => "{$input['customer_name']} has opted out of promo-messages!",
+                ]);
+            }
 
+            $to = str_replace('whatsapp:', '', $this->formatToWhatsAppNumber(request('phone_number')));
             $customerRating = CustomerRating::create($input);
             $sid = $this->triggerRatingMessage($to);
 
@@ -153,7 +194,6 @@ class WhatsAppController extends Controller
                 'message_sid' => $sid,
                 'customer_rating' => $customerRating
             ]);
-
         } catch (TwilioException $e) {
             // 2. THIS IS A TWILIO API ERROR
             $twilioErrorCode = $e->getCode(); // Twilio-specific error code (e.g., 21211)
@@ -163,7 +203,6 @@ class WhatsAppController extends Controller
             \Log::error("Twilio specific error occurred [Code {$twilioErrorCode}]: {$errorMessage}");
             $errorMsg = "Twilio Communication Error (Code {$twilioErrorCode}): {$errorMessage}";
             return response()->json(['error' => $errorMessage], 500);
-
         } catch (\Exception $e) {
             // 3. THIS IS A LARAVEL / PHP ERROR
             // (e.g., Database connection down, syntax error, out of memory)
@@ -186,22 +225,36 @@ class WhatsAppController extends Controller
 
             $body = $input['body'];
             if ($customerRating && $customerRating->rating_status === 'pending_rating') {
-                $options = ['Excellent', 'Good', 'Fair', 'Poor', 'Very Poor'];
+                $options = ['Excellent', 'Good', 'Fair', 'Poor', 'Very Poor', 'STOP'];
                 if (!in_array($body, $options)) {
                     $this->sendMessage($from, "Please reply from the options provided");
                 }
 
+                // opt-out of promo
+                if ($body === 'STOP') {
+                    $customerRating->update(['is_opt_out' => 1]);
+                    // IF (current_time - last_customer_message_time) < 24 hours:
+                    //     SEND free-form text: "Got it! You've been removed from our promo list."
+                    // ELSE:
+                    //     SEND approved Utility Template: [whatsapp_optout_confirmation]                    
+                    return $this->sendMessage($from, "Confirmation: Your request to opt-out of marketing communications has been processed. You will no longer receive offers via WhatsApp. Thank you for your time.");
+                }
+
+                // assign rating score
                 $pos = array_search($body, $options) + 1;
                 $score = count($options) + 1 - $pos;
 
+                // assign sentiment
+                $sentiment = $score >= 4? 'positive' : ($score === 3? 'neutral' : 'negative');
+
                 $customerRating->update([
+                    'sentiment' => $sentiment,
                     'rating_score' => $score,
                     'rating_status' => 'pending_comment',
                     'rating_received_at' => now(),
                 ]);
 
                 $this->sendMessage($from, "Thank you. Please share one short comment about your experience.");
-
             } elseif ($customerRating && $customerRating->rating_status === 'pending_comment') {
                 $customerRating->update([
                     'rating_comment' => $body,
@@ -211,6 +264,7 @@ class WhatsAppController extends Controller
 
                 $ratingScore = $customerRating->rating_score;
                 if ($ratingScore >= 4) {
+                    // "Thank you for the great feedback. Kindly leave us a public Google review here: {{google_review_link}}"
                     $this->sendMessage($from, "Thank you for the great feedback");
                     $customerRating->update(['rating_status' => 'google_review_requested']);
                 } elseif ($ratingScore == 3) {
