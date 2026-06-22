@@ -116,8 +116,7 @@ class WhatsAppController extends Controller
         return $message->sid;
     }
 
-
-    public function sendMessage($to, $body)
+    public function sendFreeFormMessage($to, $body)
     {
         $formattedTo = $this->formatToWhatsAppNumber($to);
         $formattedFrom = "whatsapp:{$this->from}";
@@ -130,7 +129,6 @@ class WhatsAppController extends Controller
 
         return $message->sid;
     }
-
 
     public function paymentReceiptNotice(Request $request)
     {
@@ -227,7 +225,7 @@ class WhatsAppController extends Controller
             if ($customerRating && $customerRating->rating_status === 'pending_rating') {
                 $options = ['Excellent', 'Good', 'Fair', 'Poor', 'Very Poor', 'STOP'];
                 if (!in_array($body, $options)) {
-                    $this->sendMessage($from, "Please reply from the options provided");
+                    $this->sendFreeFormMessage($from, "Please reply from the options provided");
                 }
 
                 // opt-out of promo
@@ -237,7 +235,7 @@ class WhatsAppController extends Controller
                     //     SEND free-form text: "Got it! You've been removed from our promo list."
                     // ELSE:
                     //     SEND approved Utility Template: [whatsapp_optout_confirmation]                    
-                    return $this->sendMessage($from, "Confirmation: Your request to opt-out of marketing communications has been processed. You will no longer receive offers via WhatsApp. Thank you for your time.");
+                    return $this->sendFreeFormMessage($from, "Confirmation: Your request to opt-out of marketing communications has been processed. You will no longer receive offers via WhatsApp. Thank you for your time.");
                 }
 
                 // assign rating score
@@ -254,7 +252,7 @@ class WhatsAppController extends Controller
                     'rating_received_at' => now(),
                 ]);
 
-                $this->sendMessage($from, "Thank you. Please share one short comment about your experience.");
+                $this->sendFreeFormMessage($from, "Thank you. Please share one short comment about your experience.");
             } elseif ($customerRating && $customerRating->rating_status === 'pending_comment') {
                 $customerRating->update([
                     'rating_comment' => $body,
@@ -265,13 +263,13 @@ class WhatsAppController extends Controller
                 $ratingScore = $customerRating->rating_score;
                 if ($ratingScore >= 4) {
                     // "Thank you for the great feedback. Kindly leave us a public Google review here: {{google_review_link}}"
-                    $this->sendMessage($from, "Thank you for the great feedback");
+                    $this->sendFreeFormMessage($from, "Thank you for the great feedback");
                     $customerRating->update(['rating_status' => 'google_review_requested']);
                 } elseif ($ratingScore == 3) {
-                    $this->sendMessage($from, "Thank you for your honest feedback. We shall use it to improve our service.");
+                    $this->sendFreeFormMessage($from, "Thank you for your honest feedback. We shall use it to improve our service.");
                     $customerRating->update(['rating_status' => 'closed']);
                 } else {
-                    $this->sendMessage($from, "We are sorry your experience did not meet expectations. Your concern has been escalated and our team will contact you shortly.");
+                    $this->sendFreeFormMessage($from, "We are sorry your experience did not meet expectations. Your concern has been escalated and our team will contact you shortly.");
                     $customerRating->update(['rating_status' => 'complaint_created']);
                 }
             }   
