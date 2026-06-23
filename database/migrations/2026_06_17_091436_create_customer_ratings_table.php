@@ -48,6 +48,7 @@ class CreateCustomerRatingsTable extends Migration
             $table->dateTime('sent_at')->nullable();
             $table->dateTime('rating_received_at')->nullable();
             $table->dateTime('comment_received_at')->nullable();
+            $table->dateTime('opt_out_at')->nullable();
             $table->timestamps(); 
         });
     }

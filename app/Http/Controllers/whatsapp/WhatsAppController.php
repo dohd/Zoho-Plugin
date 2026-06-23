@@ -4,7 +4,9 @@ namespace App\Http\Controllers\whatsapp;
 
 use App\Http\Controllers\Controller;
 use App\Models\whatsapp\CustomerRating;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Twilio\Exceptions\TwilioException;
 use Twilio\Rest\Client;
@@ -83,12 +85,12 @@ class WhatsAppController extends Controller
             $httpStatusCode  = $e->getStatusCode(); // HTTP code (e.g., 400, 401, 404)
             $errorMessage    = $e->getMessage(); // Plain text explanation
 
-            \Log::error("Twilio specific error occurred [Code {$twilioErrorCode}]: {$errorMessage}");
+            Log::error("Twilio specific error occurred [Code {$twilioErrorCode}]: {$errorMessage}");
             $errorMsg = "Twilio Communication Error (Code {$twilioErrorCode}): {$errorMessage}";
         } catch (\Exception $e) {
             // 3. THIS IS A LARAVEL / PHP ERROR
             // (e.g., Database connection down, syntax error, out of memory)
-            \Log::critical("Internal application error: " . $e->getMessage());
+            Log::critical("Internal application error: " . $e->getMessage());
             $errorMsg = "A system error occurred! Please contact system admin.";
         }
 
@@ -101,7 +103,7 @@ class WhatsAppController extends Controller
         $formattedFrom = "whatsapp:{$this->from}";
 
         // The template SID from your Twilio Content Template Builder dashboard
-        $contentSid = env('TWILIO_WHATSAPP_TEMPLATE_SID');
+        $contentSid = env('TWILIO_WHATSAPP_CUSTOMER_RATING_TEMPLATE_SID');
         $companyName = env('TWILIO_COMPANY_NAME');
 
         $twilio = $this->twilioClient;
@@ -125,6 +127,40 @@ class WhatsAppController extends Controller
         $message = $twilio->messages->create($formattedTo, [
             'from' => $formattedFrom,
             'body' => $body,            
+        ]);
+
+        return $message->sid;
+    }
+
+    public function triggerOptOutMessage($to)
+    {
+        $formattedTo = $this->formatToWhatsAppNumber($to);
+        $formattedFrom = "whatsapp:{$this->from}";
+
+        // The template SID from your Twilio Content Template Builder dashboard
+        $contentSid = env('TWILIO_WHATSAPP_CUSTOMER_OPTOUT_TEMPLATE_SID');
+
+        $twilio = $this->twilioClient;
+        $message = $twilio->messages->create($formattedTo, [
+            'from' => $formattedFrom,
+            'contentSid' => $contentSid,
+        ]);
+
+        return $message->sid;
+    }
+
+    public function triggerOptBackMessage($to)
+    {
+        $formattedTo = $this->formatToWhatsAppNumber($to);
+        $formattedFrom = "whatsapp:{$this->from}";
+
+        // The template SID from your Twilio Content Template Builder dashboard
+        $contentSid = env('TWILIO_WHATSAPP_CUSTOMER_OPTBACK_TEMPLATE_SID');
+
+        $twilio = $this->twilioClient;
+        $message = $twilio->messages->create($formattedTo, [
+            'from' => $formattedFrom,
+            'contentSid' => $contentSid,
         ]);
 
         return $message->sid;
@@ -178,6 +214,8 @@ class WhatsAppController extends Controller
 
             $to = str_replace('whatsapp:', '', $this->formatToWhatsAppNumber(request('phone_number')));
             $customerRating = CustomerRating::create($input);
+
+            // customer rating message
             $sid = $this->triggerRatingMessage($to);
 
             $customerRating->update([
@@ -189,7 +227,6 @@ class WhatsAppController extends Controller
             ]);
 
             return response()->json([
-                'message_sid' => $sid,
                 'customer_rating' => $customerRating
             ]);
         } catch (TwilioException $e) {
@@ -198,14 +235,14 @@ class WhatsAppController extends Controller
             $httpStatusCode  = $e->getStatusCode(); // HTTP code (e.g., 400, 401, 404)
             $errorMessage    = $e->getMessage(); // Plain text explanation
 
-            \Log::error("Twilio specific error occurred [Code {$twilioErrorCode}]: {$errorMessage}");
-            $errorMsg = "Twilio Communication Error (Code {$twilioErrorCode}): {$errorMessage}";
+            Log::error("Twilio specific error occurred [Code {$twilioErrorCode}]: {$errorMessage}");
+            $errorMessage = "Twilio Communication Error (Code {$twilioErrorCode}): {$errorMessage}";
             return response()->json(['error' => $errorMessage], 500);
         } catch (\Exception $e) {
             // 3. THIS IS A LARAVEL / PHP ERROR
             // (e.g., Database connection down, syntax error, out of memory)
-            \Log::critical("Internal application error: " . $e->getMessage());
-            $errorMsg = "A system error occurred! Please contact system admin.";
+            Log::critical("Internal application error: " . $e->getMessage());
+            $errorMessage = "A system error occurred! Please contact system admin.";
             return response()->json(['error' => $errorMessage], 500);
         }       
     }
@@ -216,26 +253,50 @@ class WhatsAppController extends Controller
         
         try {
             $from = str_replace('whatsapp:', '',  strval($input['from']));
+            $body = trim($input['body']);
+
             $customerRating = CustomerRating::where('phone_number', 'LIKE', '%'. $from .'%')
-                ->whereIn('rating_status', ['pending_rating', 'pending_comment'])
+                // ->whereIn('rating_status', ['pending_rating', 'pending_comment'])
                 ->latest()
                 ->first(); 
+            if (!$customerRating) trigger_error('Resource could not be found for phone-number: ' . $from);
 
-            $body = $input['body'];
-            if ($customerRating && $customerRating->rating_status === 'pending_rating') {
-                $options = ['Excellent', 'Good', 'Fair', 'Poor', 'Very Poor', 'STOP'];
-                if (!in_array($body, $options)) {
-                    $this->sendFreeFormMessage($from, "Please reply from the options provided");
+            if ($customerRating && $customerRating->is_opt_out) {
+                return response()->json(['message' => 'Feedback cannot be processed! Customer opted-out']);
+            }
+
+            // opt-out of promo
+            if ($customerRating) {
+                if (strtolower($body) === 'stop') {
+                    $customerRating->update(['is_opt_out' => 1, 'opt_out_at' => now()]);
+
+                    // check template window
+                    $currentTime = Carbon::now();
+                    $lastMsgTime = Carbon::parse($customerRating->sent_at);
+                    if ($currentTime->diffInHours($lastMsgTime) < 24) {
+                        $this->sendFreeFormMessage($from, 'Your request to opt-out of marketing communications has been processed, thank you for your time. Send "START" to opt-in.');
+                    } else {
+                        $this->triggerOptOutMessage($from);
+                    }                    
+                } elseif (strtolower($body) === 'start') {
+                    $customerRating->update([
+                        'is_opt_out' => 0, 
+                        'is_opt_back' => 1,
+                        'opt_back_at' => now(),
+                    ]);
+
+                    $this->triggerOptBackMessage($from);
                 }
 
-                // opt-out of promo
-                if ($body === 'STOP') {
-                    $customerRating->update(['is_opt_out' => 1]);
-                    // IF (current_time - last_customer_message_time) < 24 hours:
-                    //     SEND free-form text: "Got it! You've been removed from our promo list."
-                    // ELSE:
-                    //     SEND approved Utility Template: [whatsapp_optout_confirmation]                    
-                    return $this->sendFreeFormMessage($from, "Confirmation: Your request to opt-out of marketing communications has been processed. You will no longer receive offers via WhatsApp. Thank you for your time.");
+                return response()->json($customerRating);                
+            }
+
+            // process ratings and comments
+            if ($customerRating && $customerRating->rating_status === 'pending_rating') {
+                $options = ['Excellent', 'Good', 'Fair', 'Poor', 'Very Poor'];
+                if (!in_array($body, $options)) {
+                    $this->sendFreeFormMessage($from, "Please reply from the options provided");
+                    return response()->json(['message' => 'Feedback cannot be processed! Invalid option'], 500);
                 }
 
                 // assign rating score
@@ -263,7 +324,7 @@ class WhatsAppController extends Controller
                 $ratingScore = $customerRating->rating_score;
                 if ($ratingScore >= 4) {
                     // "Thank you for the great feedback. Kindly leave us a public Google review here: {{google_review_link}}"
-                    $this->sendFreeFormMessage($from, "Thank you for the great feedback");
+                    $this->sendFreeFormMessage($from, "Thank you for the great feedback.");
                     $customerRating->update(['rating_status' => 'google_review_requested']);
                 } elseif ($ratingScore == 3) {
                     $this->sendFreeFormMessage($from, "Thank you for your honest feedback. We shall use it to improve our service.");
@@ -272,27 +333,23 @@ class WhatsAppController extends Controller
                     $this->sendFreeFormMessage($from, "We are sorry your experience did not meet expectations. Your concern has been escalated and our team will contact you shortly.");
                     $customerRating->update(['rating_status' => 'complaint_created']);
                 }
-            }   
-
-            if (!$customerRating) {
-                trigger_error('Resource could not be found for phone-number: ' . $from);
-            }   
+            }  
             
-            return response()->json($customerRating);
+            return response()->json($customerRating);            
         } catch (TwilioException $e) {
             // 2. THIS IS A TWILIO API ERROR
             $twilioErrorCode = $e->getCode(); // Twilio-specific error code (e.g., 21211)
             $httpStatusCode  = $e->getStatusCode(); // HTTP code (e.g., 400, 401, 404)
             $errorMessage    = $e->getMessage(); // Plain text explanation
 
-            \Log::error("Twilio specific error occurred [Code {$twilioErrorCode}]: {$errorMessage}");
-            $errorMsg = "Twilio Communication Error (Code {$twilioErrorCode}): {$errorMessage}";
+            Log::error("Twilio specific error occurred [Code {$twilioErrorCode}]: {$errorMessage}");
+            $errorMessage = "Twilio Communication Error (Code {$twilioErrorCode}): {$errorMessage}";
             return response()->json(['error' => $errorMessage], 500);
         } catch (\Exception $e) {
             // 3. THIS IS A LARAVEL / PHP ERROR
             // (e.g., Database connection down, syntax error, out of memory)
-            \Log::critical("Internal application error: " . $e->getMessage());
-            $errorMsg = "A system error occurred! Please contact system admin.";
+            Log::critical("Internal application error: " . $e->getMessage());
+            $errorMessage = "A system error occurred! Please contact system admin.";
             return response()->json(['error' => $errorMessage], 500);
         }        
     }

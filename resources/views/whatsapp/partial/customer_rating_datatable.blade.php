@@ -3,7 +3,7 @@
 @endphp
 @foreach ($customerRatings as $key => $row)
     <tr>
-        <td>{{ $row->rating_received_at? dateFormat($row->rating_received_at, 'd-m-Y H:i') : '' }}</td>
+        <td>{{ dateFormat($row->sent_at, 'd-m-Y H:i') }}</td>
         <td>{{ $row->customer_name }}</td>
         <td>{{ $row->rating_comment }}</td>
         <td><span class="badge bg-warning">{{ $stars[$row->rating_score-1] ?? '' }}</span></td>  
