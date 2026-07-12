@@ -39,7 +39,9 @@ class WhatsAppController extends Controller
 
     public function customerRating()
     {
-        return view('whatsapp.customer_rating');
+        $ratings = CustomerRating::distinct('rating_status')->pluck('rating_status');
+
+        return view('whatsapp.customer_rating', compact('ratings'));
     }
 
     public function customerRatingDatatable()
@@ -47,6 +49,8 @@ class WhatsAppController extends Controller
         $customerRatings = CustomerRating::latest()
             ->limit(request('limit'))
             ->offset(request('offset'))
+            ->when(request('status'), fn($q) => $q->where('rating_status', request('status')))
+            ->when(request('optout'), fn($q) => $q->where('is_opt_out', 1)->where('is_opt_back', 0))
             ->get();
 
         return view('whatsapp.partial.customer_rating_datatable', compact('customerRatings'));

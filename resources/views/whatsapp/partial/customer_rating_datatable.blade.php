@@ -1,5 +1,5 @@
 @php
-    $stars = ["★☆☆☆☆", "★★☆☆☆", "★★★☆☆", "★★★★☆", "★★★★★"];
+    $stars = ["★☆☆☆", "★★☆☆", "★★★☆", "★★★★☆", "★★★★"];
 @endphp
 @foreach ($customerRatings as $key => $row)
     <tr>

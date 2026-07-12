@@ -1,21 +1,47 @@
 @extends('layouts.core')
-@section('title', 'Customer Rating')
+@section('title', 'Customer Ratings')
     
 @section('content')
+    @include('whatsapp.customer_rating_header')
+
     <div class="card">
         <div class="card-body">
-            <h5 class="card-title">Customer Rating</h5>
+            <div class="card-content p-2">
+                <div class="row mt-2">
+                    <div class="col-md-2 col-2">
+                        <select id="status" class="form-control">
+                            <option value="">-- Filter Status --</option>
+                            @foreach ($ratings as $status)
+                                <option value="{{ $status }}" >{{ ucfirst(str_replace("_", " ", $status)) }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="col-md-2 col-2">
+                        <select id="optOut" class="form-control">
+                            <option value="">-- Filter Opt-out --</option>
+                            @foreach (range(1,1) as $status)
+                                <option value="{{ $status }}">YES</option>
+                            @endforeach
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
             <div class="card-content p-2">
                 <div class="table-responsive">
                     <!-- LIMIT CONTROL -->
-                    <label>
+                    <label class="mt-3">
                         <select id="dbLimit" onchange="updateLimit()">
                           <option value="10">10</option>
                           <option value="25">25</option>
                           <option value="50">50</option>
                           <option value="200">200</option>
                         </select> entries per page
-                      </label>  
+                    </label>  
 
                     <table class="table table-borderless" id="customerRatings">
                         <thead>
@@ -67,7 +93,22 @@
         try {
             // Fetch specific slice from your DB
             const url = "{{ route('whatsapp.customer_rating_datatable') }}";
-            const response = await fetch(`${url}?limit=${currentLimit}&offset=${calculatedOffset}`);
+            const data = {
+                limit: currentLimit,
+                offset: calculatedOffset,
+                status: $('#status').val(),
+                optout: $('#optOut').val(),
+            }
+
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': "{{ csrf_token() }}"
+                },
+                body: JSON.stringify(data)
+            });
+
             const htmlRows = await response.text(); // 👈 Use .text() instead of .json()
 
             // 3. Properly cycle the datatable instance to prevent memory leaks
@@ -108,6 +149,12 @@
     // Initial Boot Lifecycle Load
     document.addEventListener("DOMContentLoaded", () => {
         loadServerData();
+    });
+
+    $(() => {
+        $('#status,#optOut').change(function() { 
+            loadServerData(); 
+        });        
     });
 </script>    
 @stop
