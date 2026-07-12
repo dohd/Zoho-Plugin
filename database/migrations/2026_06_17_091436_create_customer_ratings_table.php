@@ -39,16 +39,20 @@ class CreateCustomerRatingsTable extends Migration
             ])->default('pending_rating');
 
             $table->enum('sentiment', ['positive', 'neutral', 'negative'])->nullable();
+            $table->string('resolution_action', 199)->nullable();
 
             $table->string('twilio_from', 50)->nullable();
             $table->string('twilio_to', 50)->nullable();
             $table->string('last_message_sid', 100)->nullable();
             $table->tinyInteger('is_opt_out')->default(0);
+            $table->tinyInteger('is_opt_back')->default(0);
 
             $table->dateTime('sent_at')->nullable();
             $table->dateTime('rating_received_at')->nullable();
             $table->dateTime('comment_received_at')->nullable();
             $table->dateTime('opt_out_at')->nullable();
+            $table->dateTime('opt_back_at')->nullable();
+            $table->dateTime('resolved_at')->nullable();
             $table->timestamps(); 
         });
     }
