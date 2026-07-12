@@ -83,6 +83,7 @@ class ZohoService
             }
         );
         $promise->wait();
+
         return $responseData;
     }
 
@@ -108,6 +109,7 @@ class ZohoService
             }
         );
         $promise->wait();
+
         return $responseData;
     }
 
@@ -140,6 +142,7 @@ class ZohoService
             }
         );
         $promise->wait();
+        
         return $responseData;
     }
 

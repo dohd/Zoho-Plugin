@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Http\Services\ZohoService;
 use App\Models\GlobalConfig;
 use Closure;
 use Illuminate\Http\Request;
@@ -19,27 +20,26 @@ class LoadConfig
     public function handle(Request $request, Closure $next)
     {
         // Set dynamic config values
-        $configs = GlobalConfig::pluck('value','key');
+        $configs = GlobalConfig::pluck('value', 'key');
         foreach ($configs as $key => $value) {
             Config::set($key, $value);
         }
 
         // check validity of access token and auto-refresh
-        $now = time();
-        $future = strtotime(config('ZOHO_ACCESS_TOKEN_EXPIRY'));
-        if ($now >= $future) {
-            $service = new \App\Http\Services\ZohoService;
+        $tokenExpiry = config('ZOHO_ACCESS_TOKEN_EXPIRY')? strtotime(config('ZOHO_ACCESS_TOKEN_EXPIRY')) : 0;
+        if (time() >= $tokenExpiry) {
+            // $service = new \App\Http\Services\ZohoService;
+            $service = app(ZohoService::class); 
             $resp = $service->refreshToken();
-            if ($resp && $resp->access_token) {
-                GlobalConfig::where('key', 'ZOHO_ACCESS_TOKEN_EXPIRES_IN')->update([
-                    'value' => $resp->expires_in
-                ]); 
-                GlobalConfig::where('key', 'ZOHO_ACCESS_TOKEN_EXPIRY')->update([
-                    'value' => date('Y-m-d H:i:s', time() + $resp->expires_in),
-                ]); 
-                GlobalConfig::where('key', 'ZOHO_ACCESS_TOKEN')->update([
-                    'value' => $resp->access_token,
-                ]); 
+            if (isset($resp->access_token)) {
+                $updates = [
+                    'ZOHO_ACCESS_TOKEN_EXPIRES_IN' => $resp->expires_in,
+                    'ZOHO_ACCESS_TOKEN_EXPIRY' => date('Y-m-d H:i:s', time() + $resp->expires_in),
+                    'ZOHO_ACCESS_TOKEN' => $resp->access_token,
+                ];
+                foreach ($updates as $key => $value) {
+                    GlobalConfig::where('key', $key)->update(['value' => $value]); 
+                }               
             }
         }
 
