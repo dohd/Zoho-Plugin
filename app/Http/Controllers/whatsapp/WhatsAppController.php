@@ -15,6 +15,8 @@ use Illuminate\Support\Str;
 
 class WhatsAppController extends Controller
 {
+    use OverviewTrait;
+
     protected $twilioClient;
     protected $from;
     protected $settings;
@@ -34,7 +36,16 @@ class WhatsAppController extends Controller
 
     public function overview()
     {
-        return view('whatsapp.overview');
+        return view('whatsapp.overview', [
+            'lastWeekDate' => Carbon::now()->subDays(7)->format('M d'),
+            'feedbackKPI' => $this->feedbackKPI(),
+            'averageSatisfactionKPI' => $this->averageSatisfactionKPI(),
+            'netPromoterScoreKPI' => $this->netPromoterScoreKPI(),
+            'responseRateKPI' => $this->responseRate(),
+            'openIssuesKPI' => $this->openIssues(),
+            'resolvedCasesKPI' => $this->resolvedCases(),
+            'ratingFeedbackKPI' => $this->ratingFeedback(),
+        ]);
     }
 
     public function customerRating()

@@ -20,12 +20,6 @@
 <main>
   <div class="pagetitle">
     <h1>Whatsapp Overview</h1>
-    <nav>
-      <ol class="breadcrumb">
-        <li class="breadcrumb-item"><a href="{{ route('home') }}">Dashboard</a></li>
-        <li class="breadcrumb-item active"><a href="{{ route('whatsapp.overview') }}">Whatsapp Overview</a></li>
-      </ol>
-    </nav>
   </div>
   <!-- End Page Title -->
 
@@ -38,7 +32,7 @@
           </div>
 
           <div class="d-flex gap-2">
-              <button class="btn btn-light border">May 19 - May 25, 2024 <i class="bi bi-calendar ms-2"></i></button>
+              <button class="btn btn-light border">{{ $lastWeekDate }} - {{ date('M d, Y') }} <i class="bi bi-calendar ms-2"></i></button>
               <button class="btn btn-light border">Last 7 Days <i class="bi bi-chevron-down ms-2"></i></button>
               <button class="btn btn-success border"><i class="bi bi-arrow-clockwise"></i></button>
               {{-- <button class="btn btn-success">Export</button> --}}
@@ -47,7 +41,7 @@
 
       <div class="row g-3 mb-4" id="kpiCards"></div>
 
-      <div class="row g-3 mb-4">
+      {{-- <div class="row g-3 mb-4">
           <div class="col-lg-5">
               <div class="card-box p-4">
                   <div class="d-flex justify-content-between mb-3">
@@ -74,14 +68,13 @@
                   <div id="feedbackVolumeChart"></div>
               </div>
           </div>
-      </div>
+      </div> --}}
 
       <div class="row g-3 mb-4">
           <div class="col-lg-7">
               <div class="card-box p-4">
                   <div class="d-flex justify-content-between mb-3">
                       <h6 class="fw-bold">Recent Feedback</h6>
-                      {{-- <button class="btn btn-sm btn-light border">View All</button> --}}
                       <a href="{{ route('whatsapp.customer_rating') }}" class="btn btn-sm btn-light border">View All</a>
                   </div>
 
@@ -91,10 +84,8 @@
                               <tr>
                                   <th>Customer</th>
                                   <th>Message</th>
-                                  <th>Rating</th>
                                   <th>Sentiment</th>
                                   <th>Time</th>
-                                  <th>Status</th>
                               </tr>
                           </thead>
                           <tbody id="feedbackRows"></tbody>
@@ -123,14 +114,17 @@
 
 @section('script')
 <script>
-$(document).ready(function () {
+$(function () {
+    let data = @json($__data);
+    console.log(data);
+
     const kpis = [
-        { title: "Feedback Received", value: "1,248", icon: "bi-chat-fill", color: "green", change: "↑ 18% vs previous 7 days", up: true },
-        { title: "Average Satisfaction", value: "4.6/5", icon: "bi-star-fill", color: "green", change: "↑ 0.2 vs previous 7 days", up: true },
-        { title: "Net Promoter Score", value: "+62", icon: "bi-graph-up-arrow", color: "purple", change: "↑ 6 vs previous 7 days", up: true },
-        { title: "Response Rate", value: "78%", icon: "bi-send-fill", color: "blue", change: "↑ 8% vs previous 7 days", up: true },
-        { title: "Open Issues", value: "32", icon: "bi-exclamation-triangle", color: "yellow", change: "↓ 5 vs previous 7 days", up: false },
-        { title: "Resolved Cases", value: "86", icon: "bi-check-circle", color: "green", change: "↑ 12 vs previous 7 days", up: true }
+        { title: "Feedback Received", value: "{{ $feedbackKPI['feedbackReceived'] }}", icon: "bi-chat-fill", color: "green", change: "↑ {{ +$feedbackKPI['feedbackChange'] }}% vs previous 7 days", up: true },
+        { title: "Average Satisfaction", value: "{{ +$averageSatisfactionKPI['currentSfxn'] }}/4", icon: "bi-star-fill", color: "green", change: "↑ {{ +$averageSatisfactionKPI['sfxnChange'] }} vs previous 7 days", up: true },
+        { title: "Net Promoter Score", value: "{{ $netPromoterScoreKPI['currentNps'] }}", icon: "bi-graph-up-arrow", color: "purple", change: "↑ {{ +$netPromoterScoreKPI['npsChange'] }} vs previous 7 days", up: true },
+        { title: "Response Rate", value: "{{ $responseRateKPI['currentRate'] }}%", icon: "bi-send-fill", color: "blue", change: "↑ {{ +$responseRateKPI['rateChange'] }}% vs previous 7 days", up: true },
+        { title: "Open Issues", value: "{{ $openIssuesKPI['currentIssues'] }}", icon: "bi-exclamation-triangle", color: "yellow", change: "↓ {{ abs($openIssuesKPI['issuesChange']) }} vs previous 7 days", up: false },
+        { title: "Resolved Cases", value: "{{ $resolvedCasesKPI['currentResolved'] }}", icon: "bi-check-circle", color: "green", change: "↑ {{ +$resolvedCasesKPI['resolutionChange'] }} vs previous 7 days", up: true }
     ];
 
     $.each(kpis, function(index, item) {
@@ -152,32 +146,28 @@ $(document).ready(function () {
         `);
     });
 
-    const feedback = [
-        ["Alex M.", "Very happy with the service and fast response.", "★★★★★", "Positive", "10:24 AM", "Closed"],
-        ["Naomi W.", "My order was delayed and only received after 5 days.", "★★☆☆☆", "Negative", "09:15 AM", "Open"],
-        ["Kevin E.", "Good product quality but delivery could be faster.", "★★★☆☆", "Neutral", "Yesterday", "In Progress"],
-        ["Sharon N.", "Excellent customer support! Keep it up.", "★★★★★", "Positive", "Yesterday", "Closed"],
-        ["Brian M.", "Payment failed multiple times but was charged.", "★☆☆☆☆", "Negative", "May 23", "Escalated"]
+    const feedback_ = [
+        ["Alex M.", "Very happy with the service and fast response.", "Positive", "10:24 AM"],
+        ["Naomi W.", "My order was delayed and only received after 5 days.", "Negative", "09:15 AM",],
+        ["Kevin E.", "Good product quality but delivery could be faster.", "Neutral", "Yesterday",],
+        ["Sharon N.", "Excellent customer support! Keep it up.", "Positive", "Yesterday",],
+        ["Brian M.", "Payment failed multiple times but was charged.", "Negative", "May 23",]
     ];
 
-    $.each(feedback, function(index, row) {
-        let sentimentClass = row[3] === 'Positive' ? 'bg-success-subtle text-success' :
-                             row[3] === 'Negative' ? 'bg-danger-subtle text-danger' :
-                             'bg-warning-subtle text-warning';
+    const feedback = @json($ratingFeedbackKPI['ratingFeedback']);
 
-        let statusClass = row[5] === 'Closed' ? 'bg-success-subtle text-success' :
-                          row[5] === 'Open' ? 'bg-warning-subtle text-warning' :
-                          row[5] === 'Escalated' ? 'bg-danger-subtle text-danger' :
-                          'bg-primary-subtle text-primary';
+    $.each(feedback, function(index, row) {
+        let sentimentClass = row['sentiment'] === 'positive' ? 'bg-success-subtle text-success' :
+                             row['sentiment'] === 'negative' ? 'bg-danger-subtle text-danger' :
+                             'bg-warning-subtle text-warning';
+        const time = row['comment_received_at'].split(' ')[1];                   
 
         $('#feedbackRows').append(`
             <tr>
-                <td><b>${row[0]}</b><br><small class="text-muted">+254 7** *** ${100 + index}</small></td>
-                <td>${row[1]}</td>
-                <td class="text-warning">${row[2]}</td>
-                <td><span class="status-pill ${sentimentClass}">${row[3]}</span></td>
-                <td>${row[4]}</td>
-                <td><span class="status-pill ${statusClass}">${row[5]}</span></td>
+                <td><b>${row['customer_name']}</b></td>
+                <td>${row['rating_comment']}</td>
+                <td><span class="status-pill ${sentimentClass}">${row['sentiment']}</span></td>
+                <td>${time}</td>
             </tr>
         `);
     });
