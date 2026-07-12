@@ -34,5 +34,10 @@
         <i class="bi bi-people"></i><span>Users</span>
       </a>
     </li>
+    <li class="nav-item">
+      <a class="nav-link collapsed" href="{{ route('settings.create') }}">
+        <i class="bi bi-gear-wide-connected"></i><span>General</span>
+      </a>
+    </li>
   </ul>
 </aside>

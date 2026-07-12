@@ -58,6 +58,8 @@ Route::group(['middleware' => 'auth'], function() {
     Route::resource('user_profiles', UserProfileController::class);    
 
     // Configuration
+    Route::get('settings', [ConfigController::class, 'create'])->name('settings.create');
+    Route::post('settings/update', [ConfigController::class, 'update'])->name('settings.update');
     Route::get('clear-cache', [ConfigController::class, 'clear_cache'])->name('config.clear_cache');
     Route::get('site-down', [ConfigController::class, 'site_down'])->name('config.site_down');
 });

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\whatsapp;
 
 use App\Http\Controllers\Controller;
+use App\Models\Setting;
 use App\Models\whatsapp\CustomerRating;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -16,15 +17,19 @@ class WhatsAppController extends Controller
 {
     protected $twilioClient;
     protected $from;
+    protected $settings;
 
     public function __construct()
     {
+        $setting = Setting::pluck('value', 'key')->all();
+        $this->settings = $setting;
+
+        $this->from = $setting['TWILIO_WHATSAPP_NUMBER'];
         $this->twilioClient = new Client(
-            env('TWILIO_API_KEY_SID'),
-            env('TWILIO_API_KEY_SECRET'),
-            env('TWILIO_ACCOUNT_SID')
-        );
-        $this->from = env('TWILIO_WHATSAPP_NUMBER');
+            $setting['TWILIO_API_KEY_SID'],
+            $setting['TWILIO_API_KEY_SECRET'],
+            $setting['TWILIO_ACCOUNT_SID'],            
+        );        
     }
 
     public function overview()
@@ -82,7 +87,6 @@ class WhatsAppController extends Controller
         } catch (TwilioException $e) {
             // 2. THIS IS A TWILIO API ERROR
             $twilioErrorCode = $e->getCode(); // Twilio-specific error code (e.g., 21211)
-            $httpStatusCode  = $e->getStatusCode(); // HTTP code (e.g., 400, 401, 404)
             $errorMessage    = $e->getMessage(); // Plain text explanation
 
             Log::error("Twilio specific error occurred [Code {$twilioErrorCode}]: {$errorMessage}");
@@ -99,12 +103,17 @@ class WhatsAppController extends Controller
 
     public function triggerRatingMessage($to)
     {
-        $formattedTo = $this->formatToWhatsAppNumber($to);
         $formattedFrom = "whatsapp:{$this->from}";
+        $formattedTo = $this->formatToWhatsAppNumber($to);
+
+        // override recipient on test
+        if ($this->settings['ENVIRONMENT'] === 'test' && $this->settings['TEST_WHATSAPP_NUMBER']) {
+            $formattedTo = $this->formatToWhatsAppNumber($this->settings['TEST_WHATSAPP_NUMBER']);
+        }
 
         // The template SID from your Twilio Content Template Builder dashboard
-        $contentSid = env('TWILIO_WHATSAPP_CUSTOMER_RATING_TEMPLATE_SID');
-        $companyName = env('TWILIO_COMPANY_NAME');
+        $contentSid = $this->settings['TWILIO_WHATSAPP_CUSTOMER_RATING_TEMPLATE_SID'];
+        $companyName = $this->settings['TWILIO_COMPANY_NAME'];
 
         $twilio = $this->twilioClient;
         $message = $twilio->messages->create($formattedTo, [
@@ -112,7 +121,7 @@ class WhatsAppController extends Controller
             'contentSid' => $contentSid,
             'contentVariables' => json_encode([
                 '1' => $companyName,
-            ]),
+            ]), 
         ]);
 
         return $message->sid;
@@ -120,8 +129,13 @@ class WhatsAppController extends Controller
 
     public function sendFreeFormMessage($to, $body)
     {
-        $formattedTo = $this->formatToWhatsAppNumber($to);
         $formattedFrom = "whatsapp:{$this->from}";
+        $formattedTo = $this->formatToWhatsAppNumber($to);
+
+        // override recipient on test
+        if ($this->settings['ENVIRONMENT'] === 'test' && $this->settings['TEST_WHATSAPP_NUMBER']) {
+            $formattedTo = $this->formatToWhatsAppNumber($this->settings['TEST_WHATSAPP_NUMBER']);
+        }
 
         $twilio = $this->twilioClient;
         $message = $twilio->messages->create($formattedTo, [
@@ -134,11 +148,16 @@ class WhatsAppController extends Controller
 
     public function triggerOptOutMessage($to)
     {
-        $formattedTo = $this->formatToWhatsAppNumber($to);
         $formattedFrom = "whatsapp:{$this->from}";
+        $formattedTo = $this->formatToWhatsAppNumber($to);
+
+        // override recipient on test
+        if ($this->settings['ENVIRONMENT'] === 'test' && $this->settings['TEST_WHATSAPP_NUMBER']) {
+            $formattedTo = $this->formatToWhatsAppNumber($this->settings['TEST_WHATSAPP_NUMBER']);
+        }
 
         // The template SID from your Twilio Content Template Builder dashboard
-        $contentSid = env('TWILIO_WHATSAPP_CUSTOMER_OPTOUT_TEMPLATE_SID');
+        $contentSid = $this->settings['TWILIO_WHATSAPP_CUSTOMER_OPTOUT_TEMPLATE_SID'];
 
         $twilio = $this->twilioClient;
         $message = $twilio->messages->create($formattedTo, [
@@ -151,11 +170,16 @@ class WhatsAppController extends Controller
 
     public function triggerOptBackMessage($to)
     {
-        $formattedTo = $this->formatToWhatsAppNumber($to);
         $formattedFrom = "whatsapp:{$this->from}";
+        $formattedTo = $this->formatToWhatsAppNumber($to);
+
+        // override recipient on test
+        if ($this->settings['ENVIRONMENT'] === 'test' && $this->settings['TEST_WHATSAPP_NUMBER']) {
+            $formattedTo = $this->formatToWhatsAppNumber($this->settings['TEST_WHATSAPP_NUMBER']);
+        }
 
         // The template SID from your Twilio Content Template Builder dashboard
-        $contentSid = env('TWILIO_WHATSAPP_CUSTOMER_OPTBACK_TEMPLATE_SID');
+        $contentSid = $this->settings['TWILIO_WHATSAPP_CUSTOMER_OPTBACK_TEMPLATE_SID'];
 
         $twilio = $this->twilioClient;
         $message = $twilio->messages->create($formattedTo, [
@@ -168,7 +192,7 @@ class WhatsAppController extends Controller
 
     public function paymentReceiptNotice(Request $request)
     {
-        $expectedKey = env('DELUGE_AUTH');
+        $expectedKey = $this->settings['DELUGE_AUTH'];
         $providedKey = $request->header('X-DELUGE-AUTH');
         if (!$providedKey || $providedKey !== $expectedKey) {
             return response()->json([
@@ -205,10 +229,14 @@ class WhatsAppController extends Controller
 
         try {
             // check if customer opted-out
-            $optOutExists = CustomerRating::where('customer_id', $input['customer_id'])->where('is_opt_out', 1)->exists();
+            $optOutExists = CustomerRating::where('customer_id', $input['customer_id'])
+                ->where(['is_opt_out' => 1, 'is_opt_back' => 0])
+                ->latest()
+                ->limit(1)
+                ->exists();
             if ($optOutExists) {
                 return response()->json([
-                    'message' => "{$input['customer_name']} has opted out of promo-messages!",
+                    'message' => "{$input['customer_name']} has opted-out of feedback messages!",
                 ]);
             }
 
@@ -218,21 +246,19 @@ class WhatsAppController extends Controller
             // customer rating message
             $sid = $this->triggerRatingMessage($to);
 
-            $customerRating->update([
+            $payload = [
                 'twilio_from' => $this->from,
                 'twilio_to' => $to,
                 'phone_number' => $to,
                 'last_message_sid' => $sid,
                 'sent_at' => now(),
-            ]);
+            ];
+            $customerRating->update($payload);
 
-            return response()->json([
-                'customer_rating' => $customerRating
-            ]);
+            return response()->json(array_merge(['id' => $customerRating->id], $payload));
         } catch (TwilioException $e) {
             // 2. THIS IS A TWILIO API ERROR
             $twilioErrorCode = $e->getCode(); // Twilio-specific error code (e.g., 21211)
-            $httpStatusCode  = $e->getStatusCode(); // HTTP code (e.g., 400, 401, 404)
             $errorMessage    = $e->getMessage(); // Plain text explanation
 
             Log::error("Twilio specific error occurred [Code {$twilioErrorCode}]: {$errorMessage}");
@@ -261,50 +287,54 @@ class WhatsAppController extends Controller
                 ->first(); 
             if (!$customerRating) trigger_error('Resource could not be found for phone-number: ' . $from);
 
-            if ($customerRating && $customerRating->is_opt_out) {
-                return response()->json(['message' => 'Feedback cannot be processed! Customer opted-out']);
-            }
-
             // opt-out of promo
             if ($customerRating) {
                 if (strtolower($body) === 'stop') {
-                    $customerRating->update(['is_opt_out' => 1, 'opt_out_at' => now()]);
+                    $payload = [
+                        'is_opt_out' => 1, 
+                        'opt_out_at' => now(),
+                        'is_opt_back' => 0,
+                        'is_opt_back_at' => null,
+                    ];
+                    $customerRating->update($payload);
 
                     // check template window
                     $currentTime = Carbon::now();
                     $lastMsgTime = Carbon::parse($customerRating->sent_at);
                     if ($currentTime->diffInHours($lastMsgTime) < 24) {
-                        $this->sendFreeFormMessage($from, 'Your request to opt-out of marketing communications has been processed, thank you for your time. Send "START" to opt-in.');
+                        $this->sendFreeFormMessage($from, 'Your request to opt-out of feedback requests has been processed, thank you for your time. Send "START" to opt-in.');
                     } else {
                         $this->triggerOptOutMessage($from);
-                    }                    
+                    }   
+                    return response()->json(array_merge(['id' => $customerRating->id], $payload));                 
                 } elseif (strtolower($body) === 'start') {
-                    $customerRating->update([
+                    $payload = [
                         'is_opt_out' => 0, 
+                        'opt_out_at' => null,
                         'is_opt_back' => 1,
                         'opt_back_at' => now(),
-                    ]);
+                    ];
+                    $customerRating->update($payload);
 
                     $this->triggerOptBackMessage($from);
-                }
-
-                return response()->json($customerRating);                
+                    return response()->json(array_merge(['id' => $customerRating->id], $payload));   
+                }                         
             }
 
             // process ratings and comments
             if ($customerRating && $customerRating->rating_status === 'pending_rating') {
-                $options = ['Excellent', 'Good', 'Fair', 'Poor', 'Very Poor'];
+                $options = ['Excellent', 'Good', 'Fair', 'Poor'];
                 if (!in_array($body, $options)) {
                     $this->sendFreeFormMessage($from, "Please reply from the options provided");
                     return response()->json(['message' => 'Feedback cannot be processed! Invalid option'], 500);
                 }
 
                 // assign rating score
-                $pos = array_search($body, $options) + 1;
-                $score = count($options) + 1 - $pos;
+                $index = array_search($body, $options);
+                $score = ($index !== false) ? count($options) - $index : 0;
 
                 // assign sentiment
-                $sentiment = $score >= 4? 'positive' : ($score === 3? 'neutral' : 'negative');
+                $sentiment = $score >= 3? 'positive' : ($score === 2? 'neutral' : 'negative');
 
                 $customerRating->update([
                     'sentiment' => $sentiment,
@@ -314,6 +344,14 @@ class WhatsAppController extends Controller
                 ]);
 
                 $this->sendFreeFormMessage($from, "Thank you. Please share one short comment about your experience.");
+
+                return response()->json([
+                    'id' => $customerRating->id,
+                    'sentiment' => $sentiment,
+                    'rating_score' => $score,
+                    'rating_status' => 'pending_comment',
+                    'rating_received_at' => now(),
+                ]);   
             } elseif ($customerRating && $customerRating->rating_status === 'pending_comment') {
                 $customerRating->update([
                     'rating_comment' => $body,
@@ -322,24 +360,35 @@ class WhatsAppController extends Controller
                 ]);
 
                 $ratingScore = $customerRating->rating_score;
-                if ($ratingScore >= 4) {
-                    // "Thank you for the great feedback. Kindly leave us a public Google review here: {{google_review_link}}"
-                    $this->sendFreeFormMessage($from, "Thank you for the great feedback.");
+                if ($ratingScore >= 3) {
+                    $reviewLink = $this->settings['GOOGLE_REVIEW_LINK'];
+                    if ($reviewLink) {
+                        $message = "Thank you for the great feedback. Kindly leave us a public Google review here: {$reviewLink}";
+                        $this->sendFreeFormMessage($from, $message);
+                    } else {
+                        $this->sendFreeFormMessage($from, "Thank you for the great feedback.");
+                    }
                     $customerRating->update(['rating_status' => 'google_review_requested']);
-                } elseif ($ratingScore == 3) {
+                } elseif ($ratingScore == 2) {
                     $this->sendFreeFormMessage($from, "Thank you for your honest feedback. We shall use it to improve our service.");
                     $customerRating->update(['rating_status' => 'closed']);
                 } else {
                     $this->sendFreeFormMessage($from, "We are sorry your experience did not meet expectations. Your concern has been escalated and our team will contact you shortly.");
                     $customerRating->update(['rating_status' => 'complaint_created']);
                 }
+
+                return response()->json([
+                    'id' => $customerRating->id,
+                    'rating_comment' => $body,
+                    'rating_status' => 'comment_received',
+                    'comment_received_at' => now(),
+                ]);  
             }  
             
-            return response()->json($customerRating);            
+            return response()->json([]);            
         } catch (TwilioException $e) {
             // 2. THIS IS A TWILIO API ERROR
             $twilioErrorCode = $e->getCode(); // Twilio-specific error code (e.g., 21211)
-            $httpStatusCode  = $e->getStatusCode(); // HTTP code (e.g., 400, 401, 404)
             $errorMessage    = $e->getMessage(); // Plain text explanation
 
             Log::error("Twilio specific error occurred [Code {$twilioErrorCode}]: {$errorMessage}");
@@ -353,8 +402,6 @@ class WhatsAppController extends Controller
             return response()->json(['error' => $errorMessage], 500);
         }        
     }
-
-
 
     public function convertKeysToSnakeCase(array $input): array
     {
