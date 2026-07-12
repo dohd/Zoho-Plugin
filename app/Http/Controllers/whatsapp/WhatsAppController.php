@@ -210,6 +210,7 @@ class WhatsAppController extends Controller
         $expectedKey = $this->settings['DELUGE_AUTH'];
         $providedKey = $request->header('X-DELUGE-AUTH');
         if (!$providedKey || $providedKey !== $expectedKey) {
+            Log::error('Unauthorized: Invalid or missing API Key.');
             return response()->json([
                 'status' => 'error',
                 'message' => 'Unauthorized: Invalid or missing API Key.'
@@ -233,6 +234,7 @@ class WhatsAppController extends Controller
             $errorMessages = $errors->all();
             // Get specific field errors
             // $customerErrors = $errors->get('customer_id');
+            Log::error('Validation failed! ' . implode(', ', $errorMessages));
             return response()->json([
                 'status' => 'error', 
                 'message' => 'Validation failed! ' . implode(', ', $errorMessages),

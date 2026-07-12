@@ -1,16 +1,10 @@
 <?php
 
 use App\Http\Controllers\whatsapp\WhatsAppController;
-use App\Models\medical_insurers\MedicalInsurer;
-use App\Models\medical_insurers\MedicalPlan;
-use App\Models\medical_insurers\OptionRate;
-use App\Models\medical_insurers\PlanBenefit;
-use App\Models\medical_insurers\PlanOption;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 
 /*
@@ -43,7 +37,6 @@ Route::post('/login', function (Request $request) {
 Route::group(['middleware' => 'auth:sanctum'], function() {
     // medical insurers
     Route::get('medical_insurers', function(Request $request) {
-        $medical_insurers = MedicalInsurer::get();
-        return response()->json($medical_insurers);
+        return response()->json([]);
     });    
 });
