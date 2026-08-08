@@ -1,8 +1,8 @@
 @php
-    $stars = ["★☆☆☆", "★★☆☆", "★★★☆", "★★★★☆", "★★★★"];
+    $stars = ["★☆☆☆", "★★☆☆", "★★★☆", "★★★★"];
 @endphp
 @foreach ($customerRatings as $key => $row)
-    <tr>
+    <tr data-id="{{ $row->id }}">
         <td>{{ dateFormat($row->sent_at, 'd-m-Y H:i') }}</td>
         <td>{{ $row->customer_name }}</td>
         <td>{{ $row->rating_comment }}</td>

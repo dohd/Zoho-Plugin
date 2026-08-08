@@ -3,7 +3,8 @@
     <div class="col-6">
       <h1>Customer Ratings</h1>
     </div>
-    <div class="col-6"></div>
+    <div class="col-6">
+    </div>
   </div>
 
   <nav>

@@ -67,6 +67,14 @@ class WhatsAppController extends Controller
         return view('whatsapp.partial.customer_rating_datatable', compact('customerRatings'));
     }
 
+    public function resolutionModal()
+    {
+        $messages = collect();
+        $ticket = CustomerRating::find(request('customer_rating_id'));
+
+        return view('whatsapp.partial.resolution_modal', compact('ticket', 'messages'));
+    }
+
 
     public function messageLog()
     {

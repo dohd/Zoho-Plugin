@@ -2,7 +2,7 @@
 @section('title', 'Customer Ratings')
     
 @section('content')
-    @include('whatsapp.customer_rating_header')
+    @include('whatsapp.partial.customer_rating_header')
 
     <div class="card">
         <div class="card-body">
@@ -69,7 +69,10 @@
             </div>
         </div>
     </div>
-    {{-- @include('invoices.partial.status_modal') --}}
+
+    <!-- Resolution modal -->
+    @php $ticket = optional(); $messages = collect(); @endphp
+    @include('whatsapp.partial.resolution_modal')
 @stop
 
 @section('script')
@@ -132,14 +135,12 @@
             console.error("Database data synchronization failed:", error);
         }
     }
-
     // 4. UI Interaction Handlers
     function updateLimit() {
         currentLimit = parseInt(document.getElementById("dbLimit").value);
         currentPage = 1; // Reset to start index to avoid out-of-bounds offsets
         loadServerData();
     }
-
     function navigatePage(direction) {
         if (currentPage + direction < 1) return; // Block negative offsets
         currentPage += direction;
@@ -154,7 +155,83 @@
     $(() => {
         $('#status,#optOut').change(function() { 
             loadServerData(); 
-        });        
+        }); 
+
+
+        /**
+         * Resolution Modal Logic
+         * */ 
+        $('#customerRatings').on('click', 'tbody tr', function() {
+            const dataId = $(this).attr('data-id');
+
+            // Fetch specific slice from your DB
+            const url = "{{ route('whatsapp.resolution_modal') }}";
+            fetch(`${url}?customer_rating_id=${dataId}`)
+                .then(resp => resp.text())
+                .then(data => {
+                    $('#resolutionModal').modal('show');
+                    const modalContent = $(data).find('.modal-content');
+                    $('#resolutionModal .modal-content').html(modalContent.html());
+                });
+        });
+
+        // submit forms
+        $('#resolutionModal')
+        .on('submit', '#resolutionForm', function(e) {
+            e.preventDefault();
+            const formData = $(this).serialize();
+
+            console.log(formData);
+        })
+        .on('submit', '#followUpForm', function(e) {
+            e.preventDefault();
+            const formData = $(this).serialize();
+
+            console.log(formData);
+        });
+
+
+        // reply window logic
+        const lastMessageTime = new Date("{{ $ticket->comment_received_at }}");
+        const optOut = {{ $ticket->is_opt_out ? 1 : 0 }};
+
+        function checkReplyWindow(){
+            const now = new Date();
+            const hoursPassed = (now - lastMessageTime) / (1000 * 60 * 60);
+
+            if(optOut === 1){
+                $("#replyBox")
+                    .prop("disabled", true)
+                    .attr(
+                        "placeholder",
+                        "Customer has opted out of SMS communication."
+                    );
+
+                $("#sendReply").hide();
+                $("#replyStatus").text("SMS communication blocked");
+                return;
+            }
+
+            if(hoursPassed >= 24 || Number.isNaN(hoursPassed)){
+                $("#replyBox")
+                    .prop("disabled", true)
+                    .attr(
+                        "placeholder",
+                        "The 24-hour standard reply window has expired."
+                    );
+
+                $("#sendReply").hide();
+                $("#replyStatus").text("Reply window expired");
+                return;
+            }
+
+            const remaining = 24 - hoursPassed;
+
+            $("#replyStatus").text(Math.floor(remaining) + "h remaining to reply");
+        }
+        checkReplyWindow();
+
+        setInterval(checkReplyWindow, 60000);
     });
 </script>    
 @stop
