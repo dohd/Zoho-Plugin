@@ -1,4 +1,4 @@
-<div class="modal fade" id="resolutionModal" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="resolutionModal" tabindex="-1">
   <div class="modal-dialog modal-xl modal-dialog-centered">
     <div class="modal-content shadow-lg">
       <style>
@@ -36,6 +36,7 @@
           <small class="fw-bold"><i class="bi bi-telephone-fill"></i> {{ $ticket->phone_number }}</small>
         </div>
 
+        @if ($ticket->sentiment)
         <span class="badge ms-3
           @if($ticket->sentiment == 'positive') bg-success
           @elseif($ticket->sentiment == 'negative') bg-danger
@@ -48,6 +49,7 @@
           @endif
           {{ $ticket->sentiment }}
         </span>
+        @endif
 
         <button class="btn-close ms-auto" data-bs-dismiss="modal"></button>                        
       </div>
@@ -74,21 +76,25 @@
                   <h6 class="fw-bold">Status Timeline</h6>
 
                   <ul class="timeline small">
-                      <li><b>Sent</b><br><span>Survey sent to customer</span><br><span>{{ date('M d, Y H:m', strtotime($ticket->sent_at)) }}</span> </li>
-                      <li><b>Received</b><br><span>Customer responded</span><br><span>{{ date('M d, Y H:m', strtotime($ticket->rating_received_at)) }}</span></li>
-                      <li><b>Escalated</b><br><span>Marked for agent review</span><br><span>{{ date('M d, Y H:m', strtotime($ticket->comment_received_at)) }}</span></li>
+                      <li><b>Sent</b><br><span>Survey sent to customer</span><br><span>{{ date('M d, Y H:i', strtotime($ticket->sent_at)) }}</span> </li>
+                      @if ($ticket->rating_received_at)
+                      <li><b>Received</b><br><span>Customer responded</span><br><span>{{ date('M d, Y H:i', strtotime($ticket->rating_received_at)) }}</span></li>
+                      @endif
+                      @if ($ticket->comment_received_at)
+                      <li><b>Escalated</b><br><span>Marked for agent review</span><br><span>{{ date('M d, Y H:i', strtotime($ticket->comment_received_at)) }}</span></li>
+                      @endif
                       @if ($ticket->resolved_at)
-                        <li><b>Resolved</b><br><span>{{ date('M d, Y H:m', strtotime($ticket->resolved_at)) }}</span></li>
+                        <li><b>Resolved</b><br><span>{{ date('M d, Y H:i', strtotime($ticket->resolved_at)) }}</span></li>
                       @else
                         <li><b>Closed</b><br><span>Pending Resolution</span></li>
                       @endif
                   </ul>
 
                   @if($ticket->is_opt_out)
-                      <div class="alert alert-danger mt-4">
-                          <strong>SMS Disabled</strong><br>
-                          Customer opted out of SMS communication.
-                      </div>
+                    <div class="alert alert-danger mt-4">
+                      <strong>SMS Disabled</strong><br>
+                      Customer opted out of SMS communication.
+                    </div>
                   @endif
               </div>
 
@@ -96,28 +102,7 @@
               <div class="col-md-6 d-flex flex-column">
                   <!-- Chat Messages -->
                   <div id="chatBody" class="flex-grow-1 overflow-auto p-3">
-                      @foreach($messages as $message)
-                          @if($message->direction == 'outbound')
-                              <div class="d-flex justify-content-end mb-3">
-                                  <div class="bg-primary text-white rounded p-3"  style="max-width:75%;">                                      
-                                      {{ $message->message }}
-                                      <div class="small opacity-75 mt-2">
-                                          {{ $message->sent_at }}
-                                      </div>
-                                  </div>
-                              </div>
-                          @else
-                              <div class="d-flex justify-content-start mb-3">
-                                  <div class="bg-light rounded p-3" style="max-width:75%;">                                       
-                                      {{ $message->message }}
-
-                                      <div class="small text-muted mt-2">
-                                          {{ $message->comment_received_at }}
-                                      </div>
-                                  </div>
-                              </div>
-                          @endif
-                      @endforeach
+                      {!! spinner() !!}
                   </div>
 
                   <!-- Technical Details -->
@@ -142,7 +127,7 @@
                     <input type="hidden" name="customer_rating_id" value="{{ $ticket->id }}">
                     <div class="border-top bg-white p-3">
                         <div class="input-group">
-                            <textarea id="replyBox" class="form-control" rows="2" name="message" placeholder="Type a follow-up message..."></textarea>
+                            <textarea id="replyBox" class="form-control" rows="2" name="message" placeholder="Type a follow-up message..." required></textarea>
                             <button type="submit" id="sendReply" class="btn btn-primary">
                               <i class="bi bi-send"></i> Send
                             </button>
@@ -156,7 +141,7 @@
               <div class="col-md-3 border-start p-3">
                   <h6 class="fw-bold">Resolution & Actions</h6>
                   <div class="text-center mb-4">
-                      <h2>{{ $ticket->rating_score }}/4</h2>
+                      <h2>{{ $ticket->rating_score ?? 0 }}/4</h2>
                       <div class="text-warning fs-4">
                           @for($i = 1; $i <= 4; $i++)
                               {{ $i <= $ticket->rating_score ? '★' : '☆' }}

@@ -40,6 +40,7 @@ class CreateCustomerRatingsTable extends Migration
 
             $table->enum('sentiment', ['positive', 'neutral', 'negative'])->nullable();
             $table->string('resolution_action', 199)->nullable();
+            $table->unsignedBigInteger('resolved_by')->nullable();
 
             $table->string('twilio_from', 50)->nullable();
             $table->string('twilio_to', 50)->nullable();
@@ -53,6 +54,7 @@ class CreateCustomerRatingsTable extends Migration
             $table->dateTime('opt_out_at')->nullable();
             $table->dateTime('opt_back_at')->nullable();
             $table->dateTime('resolved_at')->nullable();
+
             $table->timestamps(); 
         });
     }

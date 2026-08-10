@@ -43,7 +43,16 @@
                         </select> entries per page
                     </label>  
 
-                    <table class="table table-borderless" id="customerRatings">
+                    <style>
+                        .custom-selectable-table tbody tr:hover td {
+                          #background-color: #e3f2fd; /* Light blue selection color */
+                          color: #0d6efd;            /* Bootstrap primary blue text color */
+                          cursor: pointer;           /* Changes cursor to a hand pointer */
+                          transition: background-color 0.15s ease-in-out; /* Smooth fade effect */
+                        }
+                    </style>
+
+                    <table class="table table-borderless table-hover custom-selectable-table" id="customerRatings">
                         <thead>
                             <tr>
                                 <th>TIME</th>
@@ -70,8 +79,8 @@
         </div>
     </div>
 
-    <!-- Resolution modal -->
-    @php $ticket = optional(); $messages = collect(); @endphp
+    <!-- Resolution modal template -->
+    @php $ticket = optional(); @endphp
     @include('whatsapp.partial.resolution_modal')
 @stop
 
@@ -164,30 +173,98 @@
         $('#customerRatings').on('click', 'tbody tr', function() {
             const dataId = $(this).attr('data-id');
 
-            // Fetch specific slice from your DB
-            const url = "{{ route('whatsapp.resolution_modal') }}";
+            // Fetch modal server-side
+            let url = "{{ route('whatsapp.resolution_modal') }}";
             fetch(`${url}?customer_rating_id=${dataId}`)
-                .then(resp => resp.text())
+                .then(resp => {
+                    if (!resp.ok) {
+                        return resp.json().then(({message}) => {
+                            throw new Error(message);
+                        });                        
+                    }
+                    return resp.text();
+                })
                 .then(data => {
                     $('#resolutionModal').modal('show');
                     const modalContent = $(data).find('.modal-content');
                     $('#resolutionModal .modal-content').html(modalContent.html());
-                });
+                })
+                .catch(error => console.log(error));
+
+            // Fetch modal messages
+            url = "{{ route('whatsapp.modal_messages') }}";
+            fetch(`${url}?customer_rating_id=${dataId}`)
+                .then(resp => {
+                    if (!resp.ok) {
+                        return resp.json().then(({message}) => {
+                            throw new Error(message);
+                        });                        
+                    }
+                    return resp.text();
+                })
+                .then(data => {
+                    if ($('#resolutionModal').hasClass('show')) {
+                        $('#resolutionModal #chatBody').html(data);
+                    }
+                })
+                .catch(error => console.log(error));
         });
 
         // submit forms
         $('#resolutionModal')
         .on('submit', '#resolutionForm', function(e) {
+            // POST resolution action
             e.preventDefault();
-            const formData = $(this).serialize();
-
-            console.log(formData);
+            const formData = new FormData($(this)[0]);
+            fetch("{{ route('whatsapp.resolve_feedback') }}", {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': "{{ csrf_token() }}",
+                },
+                body: formData,
+            })
+            .then(resp => {
+                if (!resp.ok) {
+                    return resp.json().then(({message}) => {
+                        throw new Error(message);
+                    });                        
+                }
+                return resp.json();
+            })
+            .then(({message, payload}) => {
+                alert(message);
+                const li = `<li><b>Resolved</b><br><span>${payload.resolved_at}</span></li>`;
+                $('#resolutionModal .timeline li:last').remove();
+                $('#resolutionModal .timeline').append(li);
+            })
+            .catch(error => {
+                console.log(error);
+                alert(error.statusText);
+            });            
         })
         .on('submit', '#followUpForm', function(e) {
+            // POST follow-up message
             e.preventDefault();
-            const formData = $(this).serialize();
-
-            console.log(formData);
+            const formData = new FormData($(this)[0]);
+            fetch("{{ route('whatsapp.follow_up_message') }}", {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': "{{ csrf_token() }}",
+                },
+                body: formData,
+            })
+            .then(resp => {
+                if (!resp.ok) {
+                    return resp.json().then(({message}) => {
+                        throw new Error(message);
+                    });                        
+                }
+                return resp.json();
+            })
+            .then(({message}) => {
+                alert(message);
+            })
+            .catch(error => console.log(error));  
         });
 
 

@@ -50,7 +50,11 @@ Route::group(['middleware' => 'auth'], function() {
     Route::get('whatsapp/message_log', [WhatsAppController::class, 'messageLog'])->name('whatsapp.message_log');
     Route::get('whatsapp/message_log_datatable', [WhatsAppController::class, 'messageLogDatatable'])->name('whatsapp.message_log_datatable');
     Route::post('whatsapp/customer_rating_datatable', [WhatsAppController::class, 'customerRatingDatatable'])->name('whatsapp.customer_rating_datatable'); 
-    Route::get('whatsapp/resolution_modal', [WhatsAppController::class, 'resolutionModal'])->name('whatsapp.resolution_modal');    
+    Route::get('whatsapp/resolution_modal', [WhatsAppController::class, 'resolutionModal'])->name('whatsapp.resolution_modal');
+    Route::get('whatsapp/modal_messages', [WhatsAppController::class, 'modalMessages'])->name('whatsapp.modal_messages');
+    Route::post('whatsapp/resolve_feedback', [WhatsAppController::class, 'resolveFeedback'])->name('whatsapp.resolve_feedback');  
+    Route::post('whatsapp/follow_up_message', [WhatsAppController::class, 'followUpMessage'])->name('whatsapp.follow_up_message');
+    
 
     // User Profiles
     Route::post('user_profiles/delete_profile_pic/{user}', [UserProfileController::class, 'delete_profile_pic'])->name('user_profiles.delete_profile_pic');

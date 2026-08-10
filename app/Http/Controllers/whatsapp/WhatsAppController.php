@@ -5,6 +5,7 @@ namespace App\Http\Controllers\whatsapp;
 use App\Http\Controllers\Controller;
 use App\Models\Setting;
 use App\Models\whatsapp\CustomerRating;
+use App\Models\whatsapp\FollowUpMessage;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -69,10 +70,104 @@ class WhatsAppController extends Controller
 
     public function resolutionModal()
     {
-        $messages = collect();
         $ticket = CustomerRating::find(request('customer_rating_id'));
+        
+        return view('whatsapp.partial.resolution_modal', compact('ticket'));
+    }
 
-        return view('whatsapp.partial.resolution_modal', compact('ticket', 'messages'));
+
+    public function modalMessages()
+    {
+        $messages = collect();
+        $ticket = CustomerRating::findOrFail(request('customer_rating_id'));
+
+        try {
+            $twilio = $this->twilioClient;
+
+            $twilioMessages = $twilio->messages->stream([
+                'from' => $this->formatToWhatsAppNumber($ticket->twilio_to)
+                // 'limit' => request('limit'),
+            ]);
+
+            foreach ($twilioMessages as $record) {
+                $messages->add((object) [
+                    'sid'     => $record->sid,
+                    'from'    => str_replace('whatsapp:', '', $record->from),
+                    'to'      => str_replace('whatsapp:', '', $record->to),
+                    'body'    => $record->body,
+                    'status'  => $record->status,
+                    'date'    => $record->dateSent ? $record->dateSent->format('Y-m-d H:i:s') : null,
+                    'direction' => 'inbound',
+                ]);
+            }
+
+        } catch (\Exception $e) {
+            Log::error('messages could not be retrieved for the associated number: ' . $ticket->twilio_to . ' of customer-rating-id: ' . $ticket->id);
+        }
+
+        return view('whatsapp.partial.modal_messages', compact('messages'));
+    }
+
+    public function resolveFeedback()
+    {
+        try {
+            $customerRating = CustomerRating::find(request('customer_rating_id'));
+            $customerRating->update([
+                'resolution_action' => request('resolution_action'),
+                'resolved_at' => now(),
+                'resolved_by' => auth()->id(),
+            ]);
+
+            return response()->json([
+                'message' => 'Customer feedback resolved successfully', 
+                'payload' => [
+                    'resolution_action' => request('resolution_action'),
+                    'resolved_at' => date('M d, Y H:i', strtotime($customerRating->resolved_at)),
+                    'resolved_by' => auth()->id(),
+                ],
+            ]);
+        } catch (\Exception $e) {
+            Log::error($e->getMessage() . ' {user_id:'. auth()->id() . '} at ' . $e->getFile() . ':' . $e->getLine());
+            return response()->json([
+                'message' => 'Internal server error! Please contact system admin', 
+            ], 500);
+        }
+    }
+    
+    public function followUpMessage()
+    {
+        try {
+            $customerRating = CustomerRating::findOrFail(request('customer_rating_id'));
+            $message = trim(request('message'));
+
+            if (empty($message)) {
+                Log::error('message text field is required for customer-rating-id: ' . $customerRating->id . ' user: ' . auth()->id());
+                return response()->json([
+                    'message' => 'Pleas provide a valid text', 
+                ], 400);
+            }
+
+            $sid = $this->sendFreeFormMessage($customerRating->twilio_to, $message);
+            if ($sid) {
+                FollowUpMessage::create([
+                    'customer_rating_id' => $customerRating->id,
+                    'message_sid' => $sid,
+                    'message' => $message,
+                    'sent_by' => auth()->id(),
+                    'sent_at' => now(),
+                ]);
+            }            
+
+            return response()->json([
+                'message' => 'Message sent successfully',
+                'sid' => $sid,
+            ]);
+        } catch (\Exception $e) {
+            Log::error($e->getMessage() . ' {user_id:'. auth()->id() . '} at ' . $e->getFile() . ':' . $e->getLine());
+            return response()->json([
+                'message' => 'Internal server error! Please contact system admin', 
+            ], 500);
+        }
     }
 
 
