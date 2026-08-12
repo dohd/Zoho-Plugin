@@ -84,12 +84,10 @@ class WhatsAppController extends Controller
         try {
             $twilio = $this->twilioClient;
 
-            $twilioMessages = $twilio->messages->stream([
+            $inboundMessages = $twilio->messages->stream([
                 'from' => $this->formatToWhatsAppNumber($ticket->twilio_to)
-                // 'limit' => request('limit'),
             ]);
-
-            foreach ($twilioMessages as $record) {
+            foreach ($inboundMessages as $record) {
                 $messages->add((object) [
                     'sid'     => $record->sid,
                     'from'    => str_replace('whatsapp:', '', $record->from),
@@ -100,6 +98,23 @@ class WhatsAppController extends Controller
                     'direction' => 'inbound',
                 ]);
             }
+
+            $outboundMessages = $twilio->messages->stream([
+                'to' => $this->formatToWhatsAppNumber($ticket->twilio_to)
+            ]);
+            foreach ($outboundMessages as $record) {
+                $messages->add((object) [
+                    'sid'     => $record->sid,
+                    'from'    => str_replace('whatsapp:', '', $record->from),
+                    'to'      => str_replace('whatsapp:', '', $record->to),
+                    'body'    => $record->body,
+                    'status'  => $record->status,
+                    'date'    => $record->dateSent ? $record->dateSent->format('Y-m-d H:i:s') : null,
+                    'direction' => 'outbound',
+                ]);
+            }
+
+            $messages = $messages->sortBy('date');
 
         } catch (\Exception $e) {
             Log::error('messages could not be retrieved for the associated number: ' . $ticket->twilio_to . ' of customer-rating-id: ' . $ticket->id);

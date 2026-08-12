@@ -101,7 +101,7 @@
               <!-- Middle Column -->
               <div class="col-md-6 d-flex flex-column">
                   <!-- Chat Messages -->
-                  <div id="chatBody" class="flex-grow-1 overflow-auto p-3">
+                  <div id="chatBody" class="flex-grow-1 overflow-auto p-3" style="max-height: 55vh; overflow-y: scroll;">
                       {!! spinner() !!}
                   </div>
 
