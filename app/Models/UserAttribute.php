@@ -13,7 +13,8 @@ trait UserAttribute
         return $this->getButtonWrapperAttribute(
             null,
             $this->getEditButtonAttribute('user_profiles.edit', 'edit-user'),
-            $this->getDeleteButtonAttribute('user_profiles.destroy', 'delete-user'),
+            // $this->getDeleteButtonAttribute('user_profiles.destroy', 'delete-user'),
+            null
         );
     }
 
